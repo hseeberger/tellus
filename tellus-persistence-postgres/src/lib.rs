@@ -5,9 +5,9 @@
 //! Events live in the `events` table with the primary key `(entity_type, entity_id, seq_no)`,
 //! snapshots in `snapshots` keyed by `(entity_type, entity_id)`, only the latest one retained.
 //! The schema is embedded and applied via [PostgresStore::migrate]. Appends are a single atomic,
-//! conditional statement: a stale expected next sequence number, below or above the actual one,
-//! fails with [AppendError::Conflict] and leaves the stream untouched, which is tellus's fencing
-//! guarantee. An empty append inserts nothing but is still fenced.
+//! conditional statement: an expected next sequence number not matching the actual one, below or
+//! above, fails with [AppendError::Conflict] and leaves the stream untouched, which is tellus's
+//! fencing guarantee. An empty append inserts nothing but is still fenced.
 
 #![warn(missing_docs)]
 
@@ -53,8 +53,7 @@ impl EventStore for PostgresStore {
     ) -> Result<(), AppendError<Self::Error>> {
         let next_seq_no = into_bigint(next_seq_no)?;
 
-        // The conditional INSERT cannot fence an empty append: zero rows inserted matches zero
-        // rows expected, whatever the stream's actual next sequence number is.
+        // Zero rows inserted matches zero rows expected, so an empty append cannot be fenced.
         if events.is_empty() {
             let query = "SELECT COALESCE(MAX(seq_no) + 1, 0) \
                          FROM events \
@@ -219,7 +218,7 @@ fn stored_event(row: PgRow) -> Result<StoredEvent, Error> {
     Ok(StoredEvent {
         seq_no: seq_no(&row, "seq_no")?,
         event: EncodedEvent {
-            manifest: row.try_get("manifest")?,
+            manifest: row.try_get::<String, _>("manifest")?.into(),
             schema_version: schema_version(&row)?,
             payload: row.try_get("payload")?,
         },
@@ -230,7 +229,7 @@ fn stored_snapshot(row: PgRow) -> Result<StoredSnapshot, Error> {
     Ok(StoredSnapshot {
         next_seq_no: seq_no(&row, "next_seq_no")?,
         snapshot: EncodedSnapshot {
-            manifest: row.try_get("manifest")?,
+            manifest: row.try_get::<String, _>("manifest")?.into(),
             schema_version: schema_version(&row)?,
             payload: row.try_get("payload")?,
         },
@@ -253,9 +252,6 @@ fn schema_version(row: &PgRow) -> Result<SchemaVersion, Error> {
         .map_err(|_| Error::SchemaVersionOutOfRange)
 }
 
-// The primary key on `(entity_type, entity_id, seq_no)` turns two writers racing past the
-// conditional check into a unique violation for the loser, hence 23505 is a conflict, not a
-// store failure.
 fn is_unique_violation(error: &sqlx::Error) -> bool {
     matches!(error, sqlx::Error::Database(error) if error.code().as_deref() == Some("23505"))
 }

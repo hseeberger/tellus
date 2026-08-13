@@ -8,36 +8,39 @@ use std::{
 };
 use thiserror::Error;
 
-/// A [Quota] in front of a [Sender]: counted items reserve capacity, uncounted ones bypass it,
-/// both riding the same FIFO channel. The receiver must release every counted item's reservation.
 pub(crate) struct CountedSender<T> {
-    item_tx: Sender<T>,
+    tx: Sender<T>,
     quota: Quota,
 }
 
 impl<T> CountedSender<T> {
-    pub(crate) fn new(item_tx: Sender<T>, quota: Quota) -> Self {
-        Self { item_tx, quota }
+    pub(crate) fn new(tx: Sender<T>, quota: Quota) -> Self {
+        Self { tx, quota }
     }
 
     #[cfg_attr(feature = "hotpath", hotpath::measure)]
     pub(crate) fn try_send_counted(&self, item: T) -> Result<(), CountedSendError> {
         match self.quota.reserve() {
             Ok(reservation) => {
-                self.item_tx.send(item).map_err(|_| Disconnected)?;
+                self.tx.send(item).map_err(|_| Disconnected)?;
                 reservation.commit();
                 Ok(())
             }
 
             // A full quota never drains after termination!
-            Err(_) if self.item_tx.is_disconnected() => Err(Disconnected.into()),
+            Err(_) if self.tx.is_disconnected() => Err(Disconnected.into()),
 
             Err(full) => Err(full.into()),
         }
     }
 
     pub(crate) fn try_send_uncounted(&self, item: T) -> Result<(), Disconnected> {
-        self.item_tx.send(item).map_err(|_| Disconnected)
+        self.tx.send(item).map_err(|_| Disconnected)
+    }
+
+    #[cfg(feature = "cluster")]
+    pub(crate) fn is_empty(&self) -> bool {
+        self.tx.is_empty()
     }
 }
 
@@ -45,7 +48,7 @@ impl<T> CountedSender<T> {
 impl<T> Clone for CountedSender<T> {
     fn clone(&self) -> Self {
         Self {
-            item_tx: self.item_tx.clone(),
+            tx: self.tx.clone(),
             quota: self.quota.clone(),
         }
     }
@@ -64,11 +67,10 @@ pub(crate) enum CountedSendError {
 #[error("channel disconnected")]
 pub(crate) struct Disconnected;
 
-/// A shared capacity reservation. A reservation must be taken before enqueueing and released on
-/// dequeue, never the other way round, so the count never underflows.
+/// One [Quota::unreserve] on dequeue per [Quota::reserve] before enqueueing, else the count leaks
+/// or underflows.
 ///
-/// Relaxed ordering suffices: the channel the quota sits in front of establishes happens-before,
-/// and a sender reading a stale count can only reject a message which would still have fit.
+/// Implementation note: relaxed ordering suffices, because the count guards no data.
 #[derive(Clone)]
 pub(crate) struct Quota(Repr);
 
@@ -106,8 +108,7 @@ impl Quota {
     }
 }
 
-/// A reservation held by the sender, released on drop unless committed. Committing hands the
-/// release over to the receiver, which unreserves on dequeue.
+/// Unreserves on drop unless committed.
 pub(crate) struct Reservation<'a>(Option<&'a Quota>);
 
 impl Reservation<'_> {

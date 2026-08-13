@@ -1,13 +1,10 @@
 use crate::{
     ActorId, Incoming, MailboxCapacity,
     quota::{CountedSendError, CountedSender, Full, Quota},
-    sync::lock,
+    watch::{ActorTerminated, TerminatedHandler, WatcherRegistry, Watchers},
 };
 use flume::Receiver;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::sync::Arc;
 use thiserror::Error;
 
 pub(crate) struct MailboxHandle<M> {
@@ -27,9 +24,7 @@ impl<M> MailboxHandle<M> {
         &self.watcher_registry
     }
 
-    /// The same underlying sender as for messages, hence a signal is ordered behind previously
-    /// delivered messages while bypassing the quota.
-    pub(crate) fn terminated_sink(&self) -> Arc<dyn TerminatedSink>
+    pub(crate) fn terminated_handler(&self) -> Arc<dyn TerminatedHandler>
     where
         M: Send + 'static,
     {
@@ -49,12 +44,12 @@ impl<M> Clone for MailboxHandle<M> {
 
 pub(crate) struct Mailbox<M> {
     incoming_rx: Receiver<Incoming<M>>,
-    watcher_registry: WatcherRegistry,
+    watchers: Watchers,
     quota: Quota,
 }
 
 impl<M> Mailbox<M> {
-    /// One consumer per mailbox: `&mut self` enforces it, though the body would allow `&self`.
+    /// One consumer per mailbox: `&mut self` enforces it.
     #[cfg_attr(feature = "hotpath", hotpath::measure)]
     pub(crate) async fn recv(&mut self) -> Option<Incoming<M>> {
         let incoming = self.incoming_rx.recv_async().await.ok()?;
@@ -64,60 +59,8 @@ impl<M> Mailbox<M> {
         Some(incoming)
     }
 
-    /// Dropping the returned receiver makes every send fail as terminated, while the
-    /// [ClosedMailbox] keeps registration open until [ClosedMailbox::take_watchers].
-    pub(crate) fn split(self) -> (Receiver<Incoming<M>>, ClosedMailbox) {
-        (self.incoming_rx, ClosedMailbox(self.watcher_registry))
-    }
-}
-
-/// The watcher half of a split [Mailbox]: only its owner reaches [WatcherRegistry::take], so a
-/// sender side registry clone can never close registration.
-pub(crate) struct ClosedMailbox(WatcherRegistry);
-
-impl ClosedMailbox {
-    /// Consumes the mailbox: an empty result always means an unwatched actor, never a repeated
-    /// take.
-    pub(crate) fn take_watchers(self) -> Vec<Watcher> {
-        self.0.take()
-    }
-}
-
-/// Shared between both mailbox halves and the watching actors' contexts; `None` once
-/// [WatcherRegistry::take] has closed registration.
-#[derive(Clone)]
-pub(crate) struct WatcherRegistry(Arc<Mutex<Option<HashMap<ActorId, Watcher>>>>);
-
-impl WatcherRegistry {
-    /// Registering is idempotent.
-    pub(crate) fn add(&self, watcher: Watcher) -> Result<(), ActorTerminated> {
-        let mut registry = lock(&self.0);
-        let watchers = registry.as_mut().ok_or(ActorTerminated)?;
-        watchers.entry(watcher.watcher_id()).or_insert(watcher);
-
-        Ok(())
-    }
-
-    pub(crate) fn remove(&self, watcher_id: ActorId) {
-        if let Some(watchers) = lock(&self.0).as_mut() {
-            watchers.remove(&watcher_id);
-        }
-    }
-
-    /// Close registration atomically, so a racing [WatcherRegistry::add] either is returned here
-    /// or fails. Private: closing is the run loop's privilege, else a sender side caller could
-    /// drop a live actor's watchers without ever signaling them.
-    fn take(&self) -> Vec<Watcher> {
-        lock(&self.0)
-            .take()
-            .map(|watchers| watchers.into_values().collect())
-            .unwrap_or_default()
-    }
-}
-
-impl Default for WatcherRegistry {
-    fn default() -> Self {
-        Self(Arc::new(Mutex::new(Some(HashMap::new()))))
+    pub(crate) fn split(self) -> (Receiver<Incoming<M>>, Watchers) {
+        (self.incoming_rx, self.watchers)
     }
 }
 
@@ -139,52 +82,16 @@ impl From<CountedSendError> for SendError {
     }
 }
 
-#[derive(Debug, Error)]
-#[error("actor terminated")]
-pub(crate) struct ActorTerminated;
-
-pub(crate) struct Watcher {
-    watcher_id: ActorId,
-    terminated_sink: Arc<dyn TerminatedSink>,
-}
-
-impl Watcher {
-    pub(crate) fn new(watcher_id: ActorId, terminated_sink: Arc<dyn TerminatedSink>) -> Self {
-        Self {
-            watcher_id,
-            terminated_sink,
-        }
-    }
-
-    pub(crate) fn watcher_id(&self) -> ActorId {
-        self.watcher_id
-    }
-
-    pub(crate) fn send_terminated(&self, actor_id: ActorId) -> Result<(), ActorTerminated> {
-        self.terminated_sink.send_terminated(actor_id)
-    }
-}
-
-/// Type-erases the watching actor's sender, so a [Watcher] does not name its message type.
-pub(crate) trait TerminatedSink
-where
-    Self: Send + Sync,
-{
-    fn send_terminated(&self, actor_id: ActorId) -> Result<(), ActorTerminated>;
-}
-
-impl<M> TerminatedSink for CountedSender<Incoming<M>>
+impl<M> TerminatedHandler for CountedSender<Incoming<M>>
 where
     M: Send + 'static,
 {
-    fn send_terminated(&self, actor_id: ActorId) -> Result<(), ActorTerminated> {
+    fn handle_terminated(&self, actor_id: ActorId) -> Result<(), ActorTerminated> {
         self.try_send_uncounted(Incoming::Terminated(actor_id))
             .map_err(|_| ActorTerminated)
     }
 }
 
-/// Both halves must share one quota count and one watcher registration, hence clone them, never
-/// rebuild them.
 pub(crate) fn make_mailbox<M>(mailbox_capacity: MailboxCapacity) -> (MailboxHandle<M>, Mailbox<M>) {
     let (incoming_tx, incoming_rx) = flume::unbounded();
 
@@ -192,15 +99,15 @@ pub(crate) fn make_mailbox<M>(mailbox_capacity: MailboxCapacity) -> (MailboxHand
         MailboxCapacity::Unbounded => Quota::unbounded(),
         MailboxCapacity::Bounded(capacity) => Quota::bounded(capacity),
     };
-    let watcher_registry = WatcherRegistry::default();
+    let (watcher_registry, watchers) = WatcherRegistry::new();
 
     let mailbox_handle = MailboxHandle {
         incoming_tx: CountedSender::new(incoming_tx, quota.clone()),
-        watcher_registry: watcher_registry.clone(),
+        watcher_registry,
     };
     let mailbox = Mailbox {
         incoming_rx,
-        watcher_registry,
+        watchers,
         quota,
     };
 
@@ -211,7 +118,8 @@ pub(crate) fn make_mailbox<M>(mailbox_capacity: MailboxCapacity) -> (MailboxHand
 mod tests {
     use crate::{
         ActorId, Incoming, MailboxCapacity,
-        mailbox::{SendError, Watcher, make_mailbox},
+        mailbox::{SendError, make_mailbox},
+        watch::Watcher,
     };
     use std::{num::NonZeroUsize, time::Duration};
     use tokio::time::timeout;
@@ -261,7 +169,7 @@ mod tests {
             make_mailbox::<()>(MailboxCapacity::Bounded(NonZeroUsize::MIN));
         assert!(mailbox_handle.try_send_message(()).is_ok());
 
-        let (incoming_rx, closed_mailbox) = mailbox.split();
+        let (incoming_rx, watchers) = mailbox.split();
         drop(incoming_rx);
 
         assert!(matches!(
@@ -269,9 +177,9 @@ mod tests {
             Err(SendError::ActorTerminated(_))
         ));
 
-        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_sink());
+        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_handler());
         assert!(mailbox_handle.watcher_registry().add(watcher).is_ok());
-        assert_eq!(closed_mailbox.take_watchers().len(), 1);
+        assert_eq!(watchers.close().len(), 1);
     }
 
     #[tokio::test]
@@ -333,10 +241,10 @@ mod tests {
         let (mailbox_handle, mailbox) = make_mailbox::<()>(MailboxCapacity::Unbounded);
         let clone = mailbox_handle.clone();
 
-        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_sink());
+        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_handler());
         assert!(clone.watcher_registry().add(watcher).is_ok());
 
-        assert_eq!(mailbox.split().1.take_watchers().len(), 1);
+        assert_eq!(mailbox.split().1.close().len(), 1);
     }
 
     /// A send to a terminated actor reports the termination rather than a full mailbox, also when
@@ -361,10 +269,10 @@ mod tests {
     async fn terminated_signals_ignore_capacity() {
         let (mailbox_handle, mut mailbox) =
             make_mailbox::<()>(MailboxCapacity::Bounded(NonZeroUsize::MIN));
-        let terminated_sink = mailbox_handle.terminated_sink();
+        let terminated_handler = mailbox_handle.terminated_handler();
 
         assert!(mailbox_handle.try_send_message(()).is_ok());
-        assert!(terminated_sink.send_terminated(ActorId::new()).is_ok());
+        assert!(terminated_handler.handle_terminated(ActorId::new()).is_ok());
 
         assert!(matches!(mailbox.recv().await, Some(Incoming::Message(_))));
         assert!(matches!(
@@ -386,59 +294,8 @@ mod tests {
 
         assert!(mailbox_handle.try_send_message(()).is_ok());
 
-        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_sink());
+        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_handler());
         assert!(mailbox_handle.watcher_registry().add(watcher).is_ok());
-    }
-
-    /// Registering the same watcher twice signals once: a terminated signal only names the
-    /// terminated actor, hence a second one would carry nothing.
-    #[test]
-    fn adding_a_watcher_twice_registers_once() {
-        let (mailbox_handle, mailbox) = make_mailbox::<()>(MailboxCapacity::Unbounded);
-        let (watcher_handle, _watcher_mailbox) = make_mailbox::<()>(MailboxCapacity::Unbounded);
-
-        let watcher_id = ActorId::new();
-        for _ in 0..3 {
-            assert!(
-                mailbox_handle
-                    .watcher_registry()
-                    .add(Watcher::new(watcher_id, watcher_handle.terminated_sink()))
-                    .is_ok()
-            );
-        }
-
-        assert_eq!(mailbox.split().1.take_watchers().len(), 1);
-    }
-
-    /// Removing a watcher deregisters it, so no terminated signal is sent to it and no reference
-    /// to it is held anymore.
-    #[test]
-    fn removing_a_watcher_deregisters_it() {
-        let (mailbox_handle, mailbox) = make_mailbox::<()>(MailboxCapacity::Unbounded);
-
-        let watcher_id = ActorId::new();
-        let watcher = Watcher::new(watcher_id, mailbox_handle.terminated_sink());
-        assert!(mailbox_handle.watcher_registry().add(watcher).is_ok());
-        mailbox_handle.watcher_registry().remove(watcher_id);
-
-        assert!(mailbox.split().1.take_watchers().is_empty());
-    }
-
-    /// Removing after registration has been closed has no effect, in particular it must not
-    /// reopen registration.
-    #[test]
-    fn removing_after_take_is_a_noop() {
-        let (mailbox_handle, mailbox) = make_mailbox::<()>(MailboxCapacity::Unbounded);
-
-        let watcher_id = ActorId::new();
-        let watcher = Watcher::new(watcher_id, mailbox_handle.terminated_sink());
-        assert!(mailbox_handle.watcher_registry().add(watcher).is_ok());
-        assert_eq!(mailbox.split().1.take_watchers().len(), 1);
-
-        mailbox_handle.watcher_registry().remove(watcher_id);
-
-        let watcher = Watcher::new(watcher_id, mailbox_handle.terminated_sink());
-        assert!(mailbox_handle.watcher_registry().add(watcher).is_err());
     }
 
     /// A watcher delivers the terminated signal into the watching actor's mailbox and reports an
@@ -446,32 +303,16 @@ mod tests {
     #[tokio::test]
     async fn watcher_sends_terminated_into_watching_mailbox() {
         let (mailbox_handle, mut mailbox) = make_mailbox::<()>(MailboxCapacity::Unbounded);
-        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_sink());
+        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_handler());
 
         let actor_id = ActorId::new();
-        assert!(watcher.send_terminated(actor_id).is_ok());
+        assert!(watcher.handle_terminated(actor_id).is_ok());
         assert!(matches!(
             mailbox.recv().await,
             Some(Incoming::Terminated(other)) if other == actor_id
         ));
 
         drop(mailbox);
-        assert!(watcher.send_terminated(actor_id).is_err());
-    }
-
-    /// Taking the watchers closes registration, hence a watcher racing with termination either is
-    /// taken or learns that the actor has terminated, but is never lost.
-    #[test]
-    fn taking_watchers_closes_registration() {
-        let (mailbox_handle, mailbox) = make_mailbox::<()>(MailboxCapacity::Unbounded);
-
-        let (_incoming_rx, closed_mailbox) = mailbox.split();
-
-        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_sink());
-        assert!(mailbox_handle.watcher_registry().add(watcher).is_ok());
-        assert_eq!(closed_mailbox.take_watchers().len(), 1);
-
-        let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_sink());
-        assert!(mailbox_handle.watcher_registry().add(watcher).is_err());
+        assert!(watcher.handle_terminated(actor_id).is_err());
     }
 }

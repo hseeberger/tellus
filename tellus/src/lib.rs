@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! An actor framework.
 //!
 //! An actor is created by implementing [Actor]: [Actor::init] creates its initial state and
@@ -19,8 +21,8 @@
 //! [ActorContext::reply_to] creates a [ReplyTo] which delivers the reply as an ordinary message
 //! instead. Actors can observe each other via [ActorContext::watch], which delivers an
 //! [Incoming::Terminated] signal, and [ActorContext::unwatch], which reverts that. The signal is
-//! ordered behind all messages the terminated actor has delivered to the watcher, hence receiving
-//! it proves that the watcher has seen every message from that actor it will ever see: each
+//! ordered behind all messages the terminated actor has delivered to the watcher. Receiving it
+//! hence proves that the watcher has seen every message from that actor it will ever see: each
 //! arrived before the signal or was dropped as a dead letter.
 //!
 //! With the `persistence` feature, actors can be event sourced by implementing [EventSourced] and
@@ -29,9 +31,21 @@
 //! only then applied, and the state is recovered by replay, optionally shortcut by snapshots. See
 //! `docs/persistence.md` in the repository for the guarantees. The `persistence-tests` feature
 //! adds [persistence_tests], the contract test suite any store implementation must pass.
+//!
+//! The `cluster` feature adds remoting in the [cluster] module: [ActorRef] becomes serializable and
+//! actors on different nodes message and watch each other through the same API. Without that
+//! feature tellus is purely local and pulls in none of the remoting dependencies.
+//!
+//! The `serde` feature makes the configuration deserializable, [ActorConfig] as well as the
+//! cluster's [EndpointConfig](cluster::EndpointConfig) and
+//! [BootstrapConfig](cluster::BootstrapConfig), so a deployment can read it from a config file with
+//! human readable durations. tellus pulls in no parser of its own, see the README.
 
 #![warn(missing_docs)]
 
+#[cfg(feature = "cluster")]
+#[cfg_attr(docsrs, doc(cfg(feature = "cluster")))]
+pub mod cluster;
 #[cfg(feature = "persistence-tests")]
 pub mod persistence_tests;
 
@@ -41,13 +55,14 @@ mod actor_context;
 mod actor_id;
 mod actor_ref;
 mod actor_system;
-mod ask;
 mod backoff;
 mod mailbox;
 #[cfg(feature = "persistence")]
 mod persistence;
 mod quota;
+mod request_response;
 mod sync;
+mod watch;
 
 pub use crate::{
     actor::{Actor, Control, Incoming, Nothing},
@@ -55,9 +70,9 @@ pub use crate::{
     actor_context::ActorContext,
     actor_id::ActorId,
     actor_ref::ActorRef,
-    actor_system::{ActorSystem, Error},
-    ask::{AskError, ReplyTo},
+    actor_system::{ActorSystem, TerminatedError},
     backoff::{Backoff, InvalidBackoff},
+    request_response::{AskError, ReplyTo},
 };
 
 #[cfg(feature = "persistence")]
