@@ -1,8 +1,8 @@
-//! A profiling workload for the `hotpath` feature on the `persistence` code: flood an
-//! event-sourced counter through an in-memory store, one persisted event per command with a
-//! snapshot every `SNAPSHOT_EACH` events, then recover it from the populated store; together they
-//! exercise every instrumented function, from command settlement (encode, append, apply,
-//! snapshot) to recovery (snapshot load, paged read, replay).
+//! A profiling workload for the `hotpath` feature on the `persistence` code: flood an event-sourced
+//! counter through an in-memory store, one persisted event per command with a snapshot every
+//! `SNAPSHOT_EACH` events, then recover it from the populated store. Together they exercise every
+//! instrumented function, from command settlement (encode, append, apply, snapshot) to recovery
+//! (snapshot load, paged read, replay).
 //!
 //! Run `just profile-persistence` for a timing report or `just profile-persistence-alloc` for
 //! per-call allocations. The in-memory store isolates framework overhead (codec, settlement,

@@ -1,0 +1,91 @@
+# The verifier and the chaos agent share a pod, so the agent can name what it is doing in a file
+# the verifier reads, exactly as the Compose stack's shared volume does.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tellus-verifier
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  type: NodePort
+  selector:
+    app: tellus-verifier
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30081
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tellus-verifier
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tellus-verifier
+  template:
+    metadata:
+      labels:
+        app: tellus-verifier
+        app.kubernetes.io/part-of: tellus-cluster-demo
+    spec:
+      serviceAccountName: tellus-chaos
+      volumes:
+        - name: chaos
+          emptyDir: {}
+        - name: chaos-script
+          configMap:
+            name: tellus-chaos-script
+            defaultMode: 0555
+      containers:
+        - name: verifier
+          image: tellus-cluster-demo:latest
+          imagePullPolicy: IfNotPresent
+          command: [ verifier ]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: RUST_LOG
+              value: info
+            # Full URLs: the verifier appends the path to whatever it is given.
+            - name: TELLUS_NODES
+              value: "http://tellus-0.tellus:8080,http://tellus-1.tellus:8080,http://tellus-2.tellus:8080,http://tellus-3.tellus:8080,http://tellus-4.tellus:8080"
+            - name: TELLUS_LB
+              value: "http://tellus-lb"
+            - name: TELLUS_CHAOS_STATE
+              value: /chaos/state
+            - name: TELLUS_SETTLE_SECS
+              value: "30"
+            - name: TELLUS_LB_OUTAGE_SECS
+              value: "5"
+          volumeMounts:
+            - name: chaos
+              mountPath: /chaos
+              readOnly: true
+        - name: chaos
+          # Pinned by its multi-arch index digest: amd64 and arm64, Alpine so /bin/sh is there,
+          # a kubectl client matching the node image, and uid 0 so it can write the state file.
+          image: alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
+          command: [ /bin/sh, /chaos-script/chaos.sh ]
+          env:
+            - name: STARTUP_SECS
+              value: "60"
+            - name: QUIET_SECS
+              value: "45"
+            # Longer than the Compose stack's: a policy cut has to be noticed by the failure
+            # detector, where pumba's packet loss is felt at once.
+            - name: PARTITION_SECS
+              value: "75"
+            - name: RECOVERY_SECS
+              value: "25"
+          volumeMounts:
+            - name: chaos
+              mountPath: /chaos
+            - name: chaos-script
+              mountPath: /chaos-script
