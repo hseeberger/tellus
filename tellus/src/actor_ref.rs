@@ -1,6 +1,9 @@
+#[cfg(feature = "cluster")]
+use crate::cluster;
 use crate::{
-    ActorId, AskError, MailboxCapacity, ReplyTo,
-    mailbox::{Mailbox, MailboxHandle, TerminatedSink, Watcher, WatcherRegistry, make_mailbox},
+    ActorId, MailboxCapacity,
+    mailbox::{Mailbox, MailboxHandle, make_mailbox},
+    watch::{TerminatedHandler, Watcher, WatcherRegistry},
 };
 use derive_more::Debug;
 use std::{
@@ -8,9 +11,7 @@ use std::{
     error::Error,
     hash::{Hash, Hasher},
     sync::Arc,
-    time::Duration,
 };
-use tokio::{sync::oneshot, time::timeout};
 use tracing::warn;
 
 /// A shareable reference to an actor, used to send it messages and read its ID.
@@ -22,7 +23,7 @@ pub struct ActorRef<M> {
     actor_id: ActorId,
 
     #[debug(skip)]
-    mailbox_handle: MailboxHandle<M>,
+    sink: Sink<M>,
 }
 
 impl<M> ActorRef<M> {
@@ -34,68 +35,60 @@ impl<M> ActorRef<M> {
     /// Send a message to the actor represented by this reference without blocking. If the actor
     /// has terminated, or if its mailbox is full for [MailboxCapacity::Bounded], the message
     /// is dropped and logged as a dead letter. Also, even if the message is delivered to the
-    /// actor, it might stop before processing it.
+    /// actor, it might stop before processing it. With the `cluster` feature a reference can point
+    /// to an actor on another node; then an unreachable node or a full outbound queue equally
+    /// makes the message a dead letter.
     #[cfg_attr(feature = "hotpath", hotpath::measure)]
     pub fn tell(&self, message: M) {
-        if let Err(error) = self.mailbox_handle.try_send_message(message) {
-            self.dead_letter(&error);
-        }
-    }
-
-    /// Send a request to the actor represented by this reference and await the reply for at most
-    /// `within`. The given function builds the request message around a [ReplyTo] for the actor
-    /// to [ReplyTo::reply] to.
-    ///
-    /// Unlike [ActorRef::tell], failures are returned instead of only logged, since the caller is
-    /// awaiting: [AskError::MailboxFull] and [AskError::ActorTerminated] if the request cannot be
-    /// sent, [AskError::NoReply] once it is detected that no reply can arrive anymore and
-    /// [AskError::Timeout] once `within` has elapsed without a reply. The `NoReply` detection is
-    /// best-effort, which is why the wait is bounded: against e.g. a responder which keeps its
-    /// [ReplyTo] alive without replying, the ask resolves as `Timeout`; a late reply is dropped
-    /// and logged as a dead letter.
-    ///
-    /// For code outside of any actor, e.g. alongside [ActorSystem::terminated]; inside an actor
-    /// use [ActorContext::reply_to] instead of awaiting.
-    ///
-    /// [ActorContext::reply_to]: crate::ActorContext::reply_to
-    /// [ActorSystem::terminated]: crate::ActorSystem::terminated
-    #[cfg_attr(feature = "hotpath", hotpath::measure)]
-    pub async fn ask<R, F>(&self, within: Duration, make_message: F) -> Result<R, AskError>
-    where
-        F: FnOnce(ReplyTo<R>) -> M,
-        R: Send + 'static,
-    {
-        let actor_id = self.actor_id;
-        let (reply_tx, reply_rx) = oneshot::channel();
-
-        let reply_to = ReplyTo::new(move |reply| {
-            if reply_tx.send(reply).is_err() {
-                warn!(
-                    %actor_id,
-                    reply_type = type_name::<R>(),
-                    error = "asker no longer awaits the reply",
-                    "dead letter"
-                );
+        match &self.sink {
+            Sink::Local(mailbox_handle) => {
+                if let Err(error) = mailbox_handle.try_send_message(message) {
+                    self.dead_letter(&error);
+                }
             }
-        });
 
-        self.mailbox_handle
-            .try_send_message(make_message(reply_to))?;
-
-        match timeout(within, reply_rx).await {
-            Ok(reply) => reply.map_err(|_| AskError::NoReply),
-            Err(_) => Err(AskError::Timeout(within)),
+            #[cfg(feature = "cluster")]
+            Sink::Remote(remote_sink) => {
+                if let Err(error) = remote_sink.try_send_message(message) {
+                    self.dead_letter(&error);
+                }
+            }
         }
     }
 
-    pub(crate) fn watcher_registry(&self) -> &WatcherRegistry {
-        self.mailbox_handle.watcher_registry()
+    pub(crate) fn sink(&self) -> &Sink<M> {
+        &self.sink
+    }
+
+    pub(crate) fn watch_target(&self) -> WatchTarget<'_> {
+        match &self.sink {
+            Sink::Local(mailbox_handle) => WatchTarget::Local(mailbox_handle.watcher_registry()),
+
+            #[cfg(feature = "cluster")]
+            Sink::Remote(remote_sink) => WatchTarget::Remote(remote_sink.node()),
+        }
+    }
+
+    #[cfg(feature = "cluster")]
+    pub(crate) fn watcher_registry(&self) -> Option<&WatcherRegistry> {
+        match &self.sink {
+            Sink::Local(mailbox_handle) => Some(mailbox_handle.watcher_registry()),
+            Sink::Remote(_) => None,
+        }
+    }
+
+    #[cfg(feature = "cluster")]
+    pub(crate) fn remote(remote_sink: cluster::RemoteSink<M>) -> Self {
+        Self {
+            actor_id: remote_sink.target(),
+            sink: Sink::Remote(remote_sink),
+        }
     }
 
     fn new(actor_id: ActorId, mailbox_handle: MailboxHandle<M>) -> Self {
         Self {
             actor_id,
-            mailbox_handle,
+            sink: Sink::Local(mailbox_handle),
         }
     }
 
@@ -133,7 +126,33 @@ impl<M> Clone for ActorRef<M> {
     fn clone(&self) -> Self {
         Self {
             actor_id: self.actor_id,
-            mailbox_handle: self.mailbox_handle.clone(),
+            sink: self.sink.clone(),
+        }
+    }
+}
+
+pub(crate) enum WatchTarget<'a> {
+    Local(&'a WatcherRegistry),
+
+    #[cfg(feature = "cluster")]
+    Remote(cluster::NodeId),
+}
+
+pub(crate) enum Sink<M> {
+    Local(MailboxHandle<M>),
+
+    #[cfg(feature = "cluster")]
+    Remote(cluster::RemoteSink<M>),
+}
+
+// A derived `Clone` would needlessly require `M: Clone`.
+impl<M> Clone for Sink<M> {
+    fn clone(&self) -> Self {
+        match self {
+            Sink::Local(mailbox_handle) => Sink::Local(mailbox_handle.clone()),
+
+            #[cfg(feature = "cluster")]
+            Sink::Remote(remote_sink) => Sink::Remote(remote_sink.clone()),
         }
     }
 }
@@ -143,7 +162,7 @@ pub(crate) struct SelfRef<M> {
     actor_ref: ActorRef<M>,
 
     #[debug(skip)]
-    terminated_sink: Arc<dyn TerminatedSink>,
+    terminated_handler: Arc<dyn TerminatedHandler>,
 }
 
 impl<M> SelfRef<M> {
@@ -152,13 +171,13 @@ impl<M> SelfRef<M> {
         M: Send + 'static,
     {
         let (mailbox_handle, mailbox) = make_mailbox(mailbox_capacity);
-        let terminated_sink = mailbox_handle.terminated_sink();
+        let terminated_handler = mailbox_handle.terminated_handler();
         let actor_ref = ActorRef::new(actor_id, mailbox_handle);
 
         (
             Self {
                 actor_ref,
-                terminated_sink,
+                terminated_handler,
             },
             mailbox,
         )
@@ -169,12 +188,12 @@ impl<M> SelfRef<M> {
     }
 
     pub(crate) fn make_watcher(&self) -> Watcher {
-        Watcher::new(self.actor_ref.actor_id, self.terminated_sink.clone())
+        Watcher::new(self.actor_ref.actor_id, self.terminated_handler.clone())
     }
 
     pub(crate) fn send_terminated(&self, actor_id: ActorId) {
-        self.terminated_sink
-            .send_terminated(actor_id)
+        self.terminated_handler
+            .handle_terminated(actor_id)
             .expect("the actor's own mailbox outlives its context");
     }
 }
@@ -184,7 +203,7 @@ impl<M> Clone for SelfRef<M> {
     fn clone(&self) -> Self {
         Self {
             actor_ref: self.actor_ref.clone(),
-            terminated_sink: self.terminated_sink.clone(),
+            terminated_handler: self.terminated_handler.clone(),
         }
     }
 }

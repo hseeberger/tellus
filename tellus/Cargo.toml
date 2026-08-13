@@ -12,20 +12,38 @@ publish       = true
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = [ "--cfg", "docsrs" ]
 
 [features]
-hotpath           = [ "dep:hotpath", "hotpath/hotpath" ]
-hotpath-alloc     = [ "hotpath", "hotpath/hotpath-alloc" ]
-persistence       = [ "dep:ciborium", "dep:serde", "dep:serde_json", "dep:trait-variant" ]
+hotpath = [ "dep:hotpath", "hotpath/hotpath" ]
+hotpath-alloc = [ "hotpath", "hotpath/hotpath-alloc" ]
+persistence = [ "dep:ciborium", "dep:serde", "dep:serde_json", "dep:trait-variant" ]
 persistence-tests = [ "persistence" ]
-serde             = [ "dep:humantime-serde", "dep:serde" ]
+cluster = [
+    "dep:erased-serde",
+    "dep:postcard",
+    "dep:quinn",
+    "dep:rustls",
+    "dep:serde",
+    "dep:trait-variant",
+    "dep:x509-parser",
+    "uuid/serde",
+]
+# Enables `QuicTransport::dev`, which does not verify certificates: never enable in production!
+cluster-dev = [ "cluster", "dep:rcgen" ]
+serde       = [ "dep:humantime-serde", "dep:serde" ]
 
 [dependencies]
 ciborium        = { workspace = true, optional = true }
 derive_more     = { workspace = true, features = [ "debug", "display", "into" ] }
+erased-serde    = { workspace = true, optional = true }
 flume           = { workspace = true, features = [ "async" ] }
 hotpath         = { workspace = true, optional = true }
 humantime-serde = { workspace = true, optional = true }
+postcard        = { workspace = true, features = [ "use-std" ], optional = true }
+quinn           = { workspace = true, features = [ "runtime-tokio", "rustls-ring" ], optional = true }
+rcgen           = { workspace = true, features = [ "crypto", "ring" ], optional = true }
+rustls          = { workspace = true, features = [ "ring", "std" ], optional = true }
 serde           = { workspace = true, features = [ "derive" ], optional = true }
 serde_json      = { workspace = true, optional = true }
 thiserror       = { workspace = true }
@@ -33,14 +51,19 @@ tokio           = { workspace = true, features = [ "macros", "rt", "sync", "time
 tracing         = { workspace = true }
 trait-variant   = { workspace = true, optional = true }
 uuid            = { workspace = true, features = [ "v7" ] }
+x509-parser     = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow             = { workspace = true }
 criterion          = { workspace = true, features = [ "async_tokio" ] }
+derive_more        = { workspace = true, features = [ "debug", "deref", "deref_mut" ] }
+rcgen              = { workspace = true, features = [ "crypto", "pem", "ring" ] }
+rustls             = { workspace = true, features = [ "ring", "std" ] }
 serde              = { workspace = true, features = [ "derive" ] }
 serde_json         = { workspace = true }
+tempfile           = { workspace = true }
+tokio              = { workspace = true, features = [ "fs", "macros", "process", "rt-multi-thread", "test-util", "time" ] }
 tracing-subscriber = { workspace = true, features = [ "env-filter", "fmt", "json" ] }
-tokio              = { workspace = true, features = [ "macros", "rt-multi-thread", "test-util", "time" ] }
 
 [[example]]
 name              = "profile"
@@ -50,6 +73,14 @@ required-features = [ "hotpath" ]
 name              = "profile_persistence"
 required-features = [ "hotpath", "persistence" ]
 
+[[example]]
+name              = "cluster"
+required-features = [ "cluster-dev" ]
+
+[[example]]
+name              = "remote_scatter_gather"
+required-features = [ "cluster-dev" ]
+
 [[bench]]
 name    = "messaging"
 harness = false
@@ -58,3 +89,8 @@ harness = false
 name              = "persistence"
 harness           = false
 required-features = [ "persistence" ]
+
+[[test]]
+name              = "cluster"
+harness           = false
+required-features = [ "cluster-dev" ]

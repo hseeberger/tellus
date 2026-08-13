@@ -53,11 +53,11 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: just comparison-check comparison-lint
+      - name: just check-comparison lint-comparison
         run: |
           rustup override set ${{ needs.toolchain.outputs.stable }}
-          just comparison-check
-          just comparison-lint
+          just check-comparison
+          just lint-comparison
 
   publish:
     name: Publish comparison
@@ -101,11 +101,11 @@ jobs:
       - name: Benchmark
         run: |
           rustup override set ${{ needs.toolchain.outputs.stable }}
-          just comparison
+          just bench-comparison
 
       - name: Report
         run: |
-          just comparison-report ${{ steps.resolve.outputs.tag }}
+          just bench-comparison-report ${{ steps.resolve.outputs.tag }}
 
       - name: Publish to gh-pages
         env:
@@ -120,8 +120,8 @@ jobs:
           git worktree add ../gh-pages origin/gh-pages
 
           mkdir -p "../gh-pages/comparison/$TAG"
-          cp target/comparison-report/index.html "../gh-pages/comparison/$TAG/"
-          cp target/comparison-report/results.json "../gh-pages/comparison/$TAG/"
+          cp target/bench-comparison-report/index.html "../gh-pages/comparison/$TAG/"
+          cp target/bench-comparison-report/results.json "../gh-pages/comparison/$TAG/"
 
           {
             printf '<!doctype html>\n<html lang="en">\n<head>\n'
@@ -148,4 +148,4 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: comparison-${{ steps.resolve.outputs.tag }}
-          path: target/comparison-report
+          path: target/bench-comparison-report
