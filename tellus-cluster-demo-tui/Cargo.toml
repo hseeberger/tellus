@@ -1,0 +1,24 @@
+[package]
+name          = "tellus-cluster-demo-tui"
+description   = "A terminal observer for the tellus cluster demo, fed by the nodes' event streams."
+version       = "0.1.0"
+edition       = { workspace = true }
+license       = { workspace = true }
+homepage      = { workspace = true }
+repository    = { workspace = true }
+documentation = { workspace = true }
+publish       = false
+readme        = "README.md"
+
+[dependencies]
+anyhow                 = { workspace = true }
+crossterm              = { workspace = true, features = [ "event-stream" ] }
+futures-util           = { workspace = true }
+ratatui                = { workspace = true }
+reqwest                = { workspace = true, features = [ "json", "stream" ] }
+serde                  = { workspace = true }
+serde_json             = { workspace = true }
+tellus                 = { workspace = true, features = [ "cluster", "serde" ] }
+tellus-cluster-demo    = { workspace = true }
+tellus-cluster-inspect = { workspace = true }
+tokio                  = { workspace = true, features = [ "macros", "rt-multi-thread", "sync", "time" ] }

@@ -487,7 +487,7 @@ mod kameo_bench {
             })
         }
 
-        // Must complete before wait_for_shutdown resolves, like tellus's child barrier does!
+        /// Must complete before wait_for_shutdown resolves, like tellus's child barrier does!
         async fn on_stop(
             &mut self,
             _: WeakActorRef<Self>,
@@ -700,7 +700,7 @@ mod ractor_bench {
             })
         }
 
-        // Must complete before the pinger's own join handle resolves, like tellus's child barrier!
+        /// Must complete before the pinger's own join handle resolves, like tellus's child barrier!
         async fn post_stop(
             &self,
             _: ActorRef<Self::Msg>,

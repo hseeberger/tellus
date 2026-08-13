@@ -1,8 +1,9 @@
 #![cfg(feature = "persistence-in-memory")]
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     convert::Infallible,
+    error::Error as _,
     future::pending,
     num::{NonZeroU32, NonZeroUsize},
     sync::{Arc, Mutex},
@@ -10,9 +11,10 @@ use std::{
 };
 use tellus::{
     Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, AppendError, Backoff, Cbor, Codec,
-    Control, Effect, EncodedEvent, EncodedSnapshot, EventSourced, EventStore, InMemoryStore,
-    Incoming, Nothing, Persistence, PersistenceId, ReplyTo, RestartPolicy, SchemaVersion, SeqNo,
-    SnapshotStore, StoredEvent, StoredSnapshot, SupervisionStrategy, Versioned,
+    Control, Effect, EncodeError, EncodedEvent, EncodedSnapshot, EventSourced, EventStore,
+    InMemoryStore, Incoming, Nothing, PayloadError, Persistence, PersistenceId, ReplyTo,
+    RestartPolicy, SchemaVersion, SeqNo, SnapshotStore, StoredEvent, StoredSnapshot,
+    SupervisionStrategy, Versioned,
 };
 use thiserror::Error;
 use tokio::{
@@ -673,7 +675,7 @@ async fn undecodable_snapshot_falls_back_to_full_replay() {
             &id,
             SeqNo::new(2),
             EncodedSnapshot {
-                manifest: Count::MANIFEST.to_string(),
+                manifest: Count::MANIFEST.into(),
                 schema_version: SchemaVersion::new(99),
                 payload: Vec::new(),
             },
@@ -716,7 +718,7 @@ async fn undecodable_history_stops_the_actor() {
             &id,
             SeqNo::ZERO,
             vec![EncodedEvent {
-                manifest: Increased::MANIFEST.to_string(),
+                manifest: Increased::MANIFEST.into(),
                 schema_version: SchemaVersion::new(99),
                 payload: Vec::new(),
             }],
@@ -739,13 +741,38 @@ async fn undecodable_history_stops_the_actor() {
     );
 }
 
+/// A codec outside this crate wraps its serializer's error through the public constructors, which
+/// is what makes the `Codec` trait implementable at all; the wrapped error is the source.
+#[test]
+fn a_custom_codec_wraps_its_own_errors() {
+    let encode_error = Failing
+        .encode(&Increased(1))
+        .expect_err("the failing codec never encodes");
+    assert!(
+        encode_error
+            .source()
+            .is_some_and(|source| source.is::<Boom>()),
+        "got {encode_error:?}"
+    );
+
+    let payload_error = Failing
+        .decode::<Increased>(&[])
+        .expect_err("the failing codec never decodes");
+    assert!(
+        payload_error
+            .source()
+            .is_some_and(|source| source.is::<Boom>()),
+        "got {payload_error:?}"
+    );
+}
+
 fn persistence_id(entity_id: &str) -> PersistenceId {
     PersistenceId::new("counter", entity_id).expect("the segments are valid")
 }
 
 fn encoded(event: &Increased) -> EncodedEvent {
     EncodedEvent {
-        manifest: Increased::MANIFEST.to_string(),
+        manifest: Increased::MANIFEST.into(),
         schema_version: Increased::VERSION,
         payload: Cbor.encode(event).expect("the event is encodable"),
     }
@@ -772,7 +799,7 @@ fn restart_config() -> ActorConfig {
     ActorConfig::default().with_supervision_strategy(SupervisionStrategy::Restart(
         RestartPolicy::new(NonZeroU32::new(5).expect("5 is not zero")).with_backoff(
             Backoff::new(Duration::from_millis(1), Duration::from_millis(10))
-                .expect("the bounds are ordered"),
+                .expect("the bounds are valid"),
         ),
     ))
 }
@@ -918,6 +945,25 @@ impl Versioned for Count {
 #[derive(Debug, Error)]
 #[error("boom")]
 struct Boom;
+
+#[derive(Debug, Clone, Copy)]
+struct Failing;
+
+impl Codec for Failing {
+    fn encode<T>(&self, _value: &T) -> Result<Vec<u8>, EncodeError>
+    where
+        T: Serialize,
+    {
+        Err(EncodeError::new(Boom))
+    }
+
+    fn decode<T>(&self, _payload: &[u8]) -> Result<T, PayloadError>
+    where
+        T: DeserializeOwned,
+    {
+        Err(PayloadError::new(Boom))
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 enum Probe {
