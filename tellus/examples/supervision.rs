@@ -1,7 +1,7 @@
 //! A flaky `Loader` under the `Restart` supervision strategy: a failure re-runs `init` for a fresh
 //! state after an exponentially growing backoff, while the actor value and the mailbox are
 //! retained, so the messages queued behind a toxic one still get processed; only the count is
-//! rebuilt from zero. More than `max_restarts` failures in a streak would stop the loader instead,
+//! rebuilt from zero. More than `max_restarts` consecutive failures would stop the loader instead,
 //! escalating to the watching root.
 //!
 //! The output is printed to stdout and tellus logs the failures and restarts to stderr; the log

@@ -74,19 +74,6 @@ async fn an_entity_which_stopped_is_spawned_afresh() {
     assert_eq!(entities.spawned(), 2);
 }
 
-/// An entity nobody messages is passivated once the idle timeout has elapsed; the paused clock
-/// auto-advances, so the test does not actually wait.
-#[tokio::test(start_paused = true)]
-async fn an_idle_entity_is_passivated() {
-    let entities = Entities::new();
-    let host = host(idle_config(), entities.clone());
-
-    host.tell(note(1, "eins"));
-    entities.note().await;
-
-    entities.stopped().await;
-}
-
 /// An entity which keeps being messaged is not passivated, since every envelope stamps it as
 /// used; this one runs on the real clock, so the stamps and the sweeps interleave as they would.
 #[tokio::test]

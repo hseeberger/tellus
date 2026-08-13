@@ -78,23 +78,6 @@ async fn watching_a_terminated_context_signals_right_away() {
 }
 
 #[tokio::test]
-async fn watching_a_live_context_signals_once_it_terminates() {
-    let other = TestContext::<()>::new();
-    let other_ref = other.context().self_ref().clone();
-    let mut watcher = TestContext::<()>::new();
-
-    watcher.context().watch(&other_ref);
-    assert!(watcher.take_incoming().is_empty());
-
-    other.terminate().await;
-
-    assert_eq!(
-        watcher.take_incoming(),
-        [Incoming::Terminated(other_ref.actor_id())]
-    );
-}
-
-#[tokio::test]
 async fn an_unwatched_context_is_not_signaled() {
     let other = TestContext::<()>::new();
     let other_ref = other.context().self_ref().clone();

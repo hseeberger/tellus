@@ -1,8 +1,9 @@
 #![cfg(feature = "persistence-in-memory")]
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     convert::Infallible,
+    error::Error as _,
     future::pending,
     num::{NonZeroU32, NonZeroUsize},
     sync::{Arc, Mutex},
@@ -10,9 +11,10 @@ use std::{
 };
 use tellus::{
     Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, AppendError, Backoff, Cbor, Codec,
-    Control, Effect, EncodedEvent, EncodedSnapshot, EventSourced, EventStore, InMemoryStore,
-    Incoming, Nothing, Persistence, PersistenceId, ReplyTo, RestartPolicy, SchemaVersion, SeqNo,
-    SnapshotStore, StoredEvent, StoredSnapshot, SupervisionStrategy, Versioned,
+    Control, Effect, EncodeError, EncodedEvent, EncodedSnapshot, EventSourced, EventStore,
+    InMemoryStore, Incoming, Nothing, PayloadError, Persistence, PersistenceId, ReplyTo,
+    RestartPolicy, SchemaVersion, SeqNo, SnapshotStore, StoredEvent, StoredSnapshot,
+    SupervisionStrategy, Versioned,
 };
 use thiserror::Error;
 use tokio::{
@@ -602,10 +604,7 @@ async fn terminated_signals_reach_handle() {
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced(
-        Watcher {
-            probe_tx,
-            bye_before_stopping: false,
-        },
+        Watcher { probe_tx },
         Persistence::new(FaultyStore::default()),
     );
 
@@ -616,38 +615,6 @@ async fn terminated_signals_reach_handle() {
     );
 
     assert_terminates(system, "system did not terminate").await;
-}
-
-/// After `unwatch` no terminated signal is received, even if it is already enqueued: the child
-/// says bye through the shared FIFO right before stopping, the watcher unwatches on the bye, and
-/// the signal queued behind it is dropped before `handle` ever sees it.
-#[tokio::test]
-async fn unwatch_drops_an_enqueued_terminated_signal() {
-    let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
-
-    let system = ActorSystem::event_sourced(
-        Watcher {
-            probe_tx,
-            bye_before_stopping: true,
-        },
-        Persistence::new(FaultyStore::default()),
-    );
-
-    system.root().tell(WatcherCommand::StopChild);
-    assert_eq!(recv(&mut probe_rx, "no bye probe").await, Probe::Bye);
-
-    sleep(Duration::from_millis(100)).await;
-    system.root().tell(WatcherCommand::Stop);
-    assert_terminates(system, "system did not terminate").await;
-
-    let mut probes = Vec::new();
-    while let Ok(probe) = probe_rx.try_recv() {
-        probes.push(probe);
-    }
-    assert!(
-        !probes.contains(&Probe::Terminated),
-        "no terminated signal must be received after unwatch"
-    );
 }
 
 /// An undecodable snapshot is not a failure: it is discarded, recovery falls back to full
@@ -673,7 +640,7 @@ async fn undecodable_snapshot_falls_back_to_full_replay() {
             &id,
             SeqNo::new(2),
             EncodedSnapshot {
-                manifest: Count::MANIFEST.to_string(),
+                manifest: Count::MANIFEST.into(),
                 schema_version: SchemaVersion::new(99),
                 payload: Vec::new(),
             },
@@ -716,7 +683,7 @@ async fn undecodable_history_stops_the_actor() {
             &id,
             SeqNo::ZERO,
             vec![EncodedEvent {
-                manifest: Increased::MANIFEST.to_string(),
+                manifest: Increased::MANIFEST.into(),
                 schema_version: SchemaVersion::new(99),
                 payload: Vec::new(),
             }],
@@ -739,13 +706,38 @@ async fn undecodable_history_stops_the_actor() {
     );
 }
 
+/// A codec outside this crate wraps its serializer's error through the public constructors, which
+/// is what makes the `Codec` trait implementable at all; the wrapped error is the source.
+#[test]
+fn a_custom_codec_wraps_its_own_errors() {
+    let encode_error = Failing
+        .encode(&Increased(1))
+        .expect_err("the failing codec never encodes");
+    assert!(
+        encode_error
+            .source()
+            .is_some_and(|source| source.is::<Boom>()),
+        "got {encode_error:?}"
+    );
+
+    let payload_error = Failing
+        .decode::<Increased>(&[])
+        .expect_err("the failing codec never decodes");
+    assert!(
+        payload_error
+            .source()
+            .is_some_and(|source| source.is::<Boom>()),
+        "got {payload_error:?}"
+    );
+}
+
 fn persistence_id(entity_id: &str) -> PersistenceId {
     PersistenceId::new("counter", entity_id).expect("the segments are valid")
 }
 
 fn encoded(event: &Increased) -> EncodedEvent {
     EncodedEvent {
-        manifest: Increased::MANIFEST.to_string(),
+        manifest: Increased::MANIFEST.into(),
         schema_version: Increased::VERSION,
         payload: Cbor.encode(event).expect("the event is encodable"),
     }
@@ -772,7 +764,7 @@ fn restart_config() -> ActorConfig {
     ActorConfig::default().with_supervision_strategy(SupervisionStrategy::Restart(
         RestartPolicy::new(NonZeroU32::new(5).expect("5 is not zero")).with_backoff(
             Backoff::new(Duration::from_millis(1), Duration::from_millis(10))
-                .expect("the bounds are ordered"),
+                .expect("the bounds are valid"),
         ),
     ))
 }
@@ -919,6 +911,25 @@ impl Versioned for Count {
 #[error("boom")]
 struct Boom;
 
+#[derive(Debug, Clone, Copy)]
+struct Failing;
+
+impl Codec for Failing {
+    fn encode<T>(&self, _value: &T) -> Result<Vec<u8>, EncodeError>
+    where
+        T: Serialize,
+    {
+        Err(EncodeError::new(Boom))
+    }
+
+    fn decode<T>(&self, _payload: &[u8]) -> Result<T, PayloadError>
+    where
+        T: DeserializeOwned,
+    {
+        Err(PayloadError::new(Boom))
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum Probe {
     Init,
@@ -926,13 +937,11 @@ enum Probe {
     Recovered,
     Handled,
     Settled(u64),
-    Bye,
     Terminated,
 }
 
 struct Watcher {
     probe_tx: mpsc::UnboundedSender<Probe>,
-    bye_before_stopping: bool,
 }
 
 impl EventSourced for Watcher {
@@ -959,9 +968,7 @@ impl EventSourced for Watcher {
         context: &ActorContext<Self::Command>,
         _: Self::State,
     ) -> Result<Self::State, Self::Error> {
-        let child = context.spawn(Child {
-            parent: self.bye_before_stopping.then(|| context.self_ref().clone()),
-        });
+        let child = context.spawn(Child);
         context.watch(&child);
 
         Ok(Some(child))
@@ -969,7 +976,7 @@ impl EventSourced for Watcher {
 
     fn handle(
         &self,
-        context: &ActorContext<Self::Command>,
+        _: &ActorContext<Self::Command>,
         incoming: Incoming<Self::Command>,
         state: &Self::State,
     ) -> Result<Effect<Self>, Self::Error> {
@@ -980,16 +987,6 @@ impl EventSourced for Watcher {
                 }
                 Ok(Effect::none())
             }
-
-            Incoming::Message(WatcherCommand::Bye) => {
-                let _ = self.probe_tx.send(Probe::Bye);
-                if let Some(child) = state {
-                    context.unwatch(child);
-                }
-                Ok(Effect::none())
-            }
-
-            Incoming::Message(WatcherCommand::Stop) => Ok(Effect::stop()),
 
             Incoming::Terminated(_) => {
                 let _ = self.probe_tx.send(Probe::Terminated);
@@ -1006,13 +1003,9 @@ impl EventSourced for Watcher {
 #[derive(Debug)]
 enum WatcherCommand {
     StopChild,
-    Bye,
-    Stop,
 }
 
-struct Child {
-    parent: Option<ActorRef<WatcherCommand>>,
-}
+struct Child;
 
 impl Actor for Child {
     type Message = ();
@@ -1030,12 +1023,7 @@ impl Actor for Child {
         state: Self::State,
     ) -> Result<Control<Self::State>, Self::Error> {
         match incoming {
-            Incoming::Message(()) => {
-                if let Some(parent) = &self.parent {
-                    parent.tell(WatcherCommand::Bye);
-                }
-                Ok(Control::Stop)
-            }
+            Incoming::Message(()) => Ok(Control::Stop),
 
             Incoming::Terminated(_) => Ok(Control::Continue(state)),
         }

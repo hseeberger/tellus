@@ -40,16 +40,31 @@ where
     /// it must produce the same seed the stored events were originally folded onto: pure, no
     /// world-touching work, which would silently disappear the moment snapshots are enabled; that
     /// belongs into [recovered](EventSourced::recovered).
+    ///
+    /// # Errors
+    /// Implementations fail when they choose to, e.g. through `?` on a domain error; tellus
+    /// handles a failure exactly like a panic, through the configured
+    /// [SupervisionStrategy](crate::SupervisionStrategy).
     fn init(&self) -> Result<Self::State, Self::Error>;
 
     /// Turn a decoded snapshot into the state as of the sequence number the snapshot covers;
     /// recovery then replays only the events after it. Actors without snapshots use
     /// `match snapshot {}`.
+    ///
+    /// # Errors
+    /// Implementations fail when they choose to, e.g. through `?` on a domain error; tellus
+    /// handles a failure exactly like a panic, through the configured
+    /// [SupervisionStrategy](crate::SupervisionStrategy).
     fn init_from_snapshot(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::Error>;
 
     /// Reconcile the recovered state with the world, e.g. spawn child actors or re-arm timers.
     /// Run exactly once per incarnation, after replay or snapshot load and before the first
     /// command, never during replay.
+    ///
+    /// # Errors
+    /// Implementations fail when they choose to, e.g. through `?` on a domain error; tellus
+    /// handles a failure exactly like a panic, through the configured
+    /// [SupervisionStrategy](crate::SupervisionStrategy).
     fn recovered(
         &self,
         _context: &ActorContext<Self::Command>,
@@ -67,6 +82,11 @@ where
     /// [SupervisionStrategy](crate::SupervisionStrategy) decide what happens; under
     /// [SupervisionStrategy::Restart](crate::SupervisionStrategy::Restart) the actor recovers by
     /// replaying from the store.
+    ///
+    /// # Errors
+    /// Implementations fail when they choose to, e.g. through `?` on a domain error; tellus
+    /// handles a failure exactly like a panic, through the configured
+    /// [SupervisionStrategy](crate::SupervisionStrategy).
     fn handle(
         &self,
         context: &ActorContext<Self::Command>,
@@ -74,15 +94,19 @@ where
         state: &Self::State,
     ) -> Result<Effect<Self>, Self::Error>;
 
-    /// Fold an event into the state: the only state transition, run on replay exactly as on a
-    /// live event, hence it must be pure and total: no I/O, no failure, no dependence on the
-    /// clock, on randomness or on per-incarnation values.
+    /// Fold an event into the state: the only state transition, run on replay exactly as on a live
+    /// event. It must hence be pure and total: no I/O, no failure, no dependence on the clock, on
+    /// randomness or on per-incarnation values.
     fn apply(&self, state: Self::State, event: Self::Event) -> Self::State;
 
     /// Offer a snapshot of the given state, called after the events of an [Effect] have been
     /// applied; [Some] is saved to the snapshot store, shortening future recoveries, [None] means
     /// no snapshot is due. Snapshots are a discardable derivative of the events, never a source
     /// of truth, so a failure to build or save one is logged and never fails the actor.
+    ///
+    /// # Errors
+    /// Implementations fail when they choose to; the failure is logged, never handed to the
+    /// supervision strategy.
     fn snapshot(&self, _state: &Self::State) -> Result<Option<Self::Snapshot>, Self::Error> {
         Ok(None)
     }

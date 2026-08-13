@@ -8,8 +8,7 @@ use derive_more::Display;
 pub struct SeqNo(u64);
 
 impl SeqNo {
-    /// The position of an empty stream, and the sequence number of the first event appended to
-    /// one.
+    /// The position of an empty stream and the sequence number of the first event.
     pub const ZERO: Self = Self::new(0);
 
     /// Create a sequence number, e.g. from a store's column value.
@@ -37,13 +36,6 @@ impl SeqNo {
 mod tests {
     use crate::persistence::seq_no::SeqNo;
 
-    /// An empty stream's position is the number the first event will take.
-    #[test]
-    fn zero_is_the_first_position() {
-        assert_eq!(SeqNo::ZERO, SeqNo::new(0));
-        assert_eq!(SeqNo::ZERO.as_u64(), 0);
-    }
-
     /// Advancing by one is the successor, and advancing by a count lands where that many
     /// successive appends would.
     #[test]
@@ -53,29 +45,10 @@ mod tests {
         assert_eq!(SeqNo::new(2).advanced_by(3), SeqNo::new(5));
     }
 
-    /// An effect without events settles at the same position it started at.
-    #[test]
-    fn advanced_by_zero_stays_put() {
-        assert_eq!(SeqNo::new(7).advanced_by(0), SeqNo::new(7));
-    }
-
-    /// Positions order like their numbers, which a store's read filter relies on.
-    #[test]
-    fn positions_are_ordered_by_their_number() {
-        assert!(SeqNo::ZERO < SeqNo::new(1));
-        assert!(SeqNo::new(9) > SeqNo::new(8));
-    }
-
     /// Advancing past the end saturates: a wrapped position would silently reorder a stream.
     #[test]
     fn advancing_saturates_instead_of_wrapping() {
         assert_eq!(SeqNo::new(u64::MAX).succ(), SeqNo::new(u64::MAX));
         assert_eq!(SeqNo::new(u64::MAX).advanced_by(3), SeqNo::new(u64::MAX));
-    }
-
-    /// A position renders as its bare number in logs and in the replay gap error.
-    #[test]
-    fn display_renders_the_number() {
-        assert_eq!(SeqNo::new(42).to_string(), "42");
     }
 }

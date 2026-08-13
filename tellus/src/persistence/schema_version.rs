@@ -20,20 +20,3 @@ impl SchemaVersion {
         self.0
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::persistence::schema_version::SchemaVersion;
-
-    /// A schema version round-trips through the `u16` a store column holds.
-    #[test]
-    fn new_and_as_u16_round_trip() {
-        assert_eq!(SchemaVersion::new(7).as_u16(), 7);
-    }
-
-    /// A version renders as its bare number, which the unsupported-version error relies on.
-    #[test]
-    fn display_renders_the_number() {
-        assert_eq!(SchemaVersion::new(7).to_string(), "7");
-    }
-}

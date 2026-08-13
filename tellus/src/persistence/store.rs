@@ -1,7 +1,7 @@
 use crate::persistence::{
     persistence_id::PersistenceId, schema_version::SchemaVersion, seq_no::SeqNo,
 };
-use std::{convert::Infallible, error::Error, num::NonZeroUsize};
+use std::{borrow::Cow, convert::Infallible, error::Error, num::NonZeroUsize};
 use thiserror::Error;
 use tracing::warn;
 
@@ -13,19 +13,19 @@ pub trait EventStore
 where
     Self: Clone + Send + Sync + 'static,
 {
-    /// The type of the store's failures. [Send], [Sync] and `'static` are required by the
-    /// `Send` variant of this trait anyway; stating them here reports a non-conforming error
-    /// type at its definition instead of at an opaque future, and lets callers box or propagate
-    /// store failures across tasks.
+    /// The type of the store's failures.
     type Error: Error + Send + Sync + 'static;
 
     /// Append the given events at sequence number `next_seq_no`, the first one taking that number,
     /// atomically: after a crash the stream contains all of them or none. The append is
-    /// conditional: if the stream's actual next sequence number differs from `next_seq_no`,
-    /// another writer has extended the stream and the append must fail with
-    /// [AppendError::Conflict], leaving the stream untouched; this fences concurrent
-    /// incarnations. `next_seq_no` is [SeqNo::ZERO] for an empty stream. An empty `events`
-    /// appends nothing but is still conditional.
+    /// conditional on `next_seq_no`, which fences concurrent incarnations. `next_seq_no` is
+    /// [SeqNo::ZERO] for an empty stream. An empty `events` appends nothing but is still
+    /// conditional.
+    ///
+    /// # Errors
+    /// Implementations fail with a conflict if the stream's actual next sequence number differs
+    /// from `next_seq_no`, below or above, leaving the stream untouched, or with their own error
+    /// if the events cannot be written; either way the append is all or nothing.
     async fn append(
         &self,
         id: &PersistenceId,
@@ -35,6 +35,10 @@ where
 
     /// Read up to `limit` events from the given sequence number on, inclusive, in ascending
     /// order. Replay pages through this until a page is short.
+    ///
+    /// # Errors
+    /// Implementations fail if the events cannot be read; a stream with nothing from
+    /// `from_seq_no` on is an empty page, not a failure.
     async fn read(
         &self,
         id: &PersistenceId,
@@ -51,14 +55,14 @@ pub trait SnapshotStore
 where
     Self: Clone + Send + Sync + 'static,
 {
-    /// The type of the store's failures. [Send], [Sync] and `'static` are required by the
-    /// `Send` variant of this trait anyway; stating them here reports a non-conforming error
-    /// type at its definition instead of at an opaque future, and lets callers box or propagate
-    /// store failures across tasks.
+    /// The type of the store's failures.
     type Error: Error + Send + Sync + 'static;
 
     /// Save the given snapshot together with `next_seq_no`, the sequence number at which replay
     /// resumes, replacing any earlier snapshot: only the latest one is ever loaded.
+    ///
+    /// # Errors
+    /// Implementations fail if the snapshot cannot be written.
     async fn save(
         &self,
         id: &PersistenceId,
@@ -67,6 +71,9 @@ where
     ) -> Result<(), Self::Error>;
 
     /// Load the latest snapshot, if any.
+    ///
+    /// # Errors
+    /// Implementations fail if the store cannot be read; no snapshot is `None`, not a failure.
     async fn load(&self, id: &PersistenceId) -> Result<Option<StoredSnapshot>, Self::Error>;
 }
 
@@ -98,7 +105,7 @@ impl SnapshotStore for NoSnapshots {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncodedEvent {
     /// The stable name of the event type, from [Versioned::MANIFEST](crate::Versioned::MANIFEST).
-    pub manifest: String,
+    pub manifest: Cow<'static, str>,
 
     /// The schema version of the payload, from [Versioned::VERSION](crate::Versioned::VERSION) at
     /// the time of writing.
@@ -123,7 +130,7 @@ pub struct StoredEvent {
 pub struct EncodedSnapshot {
     /// The stable name of the snapshot type, from
     /// [Versioned::MANIFEST](crate::Versioned::MANIFEST).
-    pub manifest: String,
+    pub manifest: Cow<'static, str>,
 
     /// The schema version of the payload, from [Versioned::VERSION](crate::Versioned::VERSION) at
     /// the time of writing.
@@ -149,8 +156,9 @@ pub enum AppendError<E>
 where
     E: Error,
 {
-    /// The given next sequence number is stale: another writer has extended the stream.
-    #[error("append at a stale next sequence number")]
+    /// The given next sequence number does not match the stream head, below or above: another
+    /// writer has extended the stream, or the caller expected a stream it never wrote.
+    #[error("append at a next sequence number not matching the stream head")]
     Conflict,
 
     /// The store itself failed.
