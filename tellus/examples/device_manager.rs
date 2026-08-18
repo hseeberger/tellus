@@ -126,7 +126,6 @@ impl Actor for DeviceManager {
 
             Incoming::Message(Command::Shutdown) => Ok(Control::Stop),
 
-            // Watch-based pruning keeps the registry free of terminated groups.
             Incoming::Terminated(actor_id) => {
                 groups.retain(|_, group_ref| group_ref.actor_id() != actor_id);
                 Ok(Control::Continue(groups))
@@ -264,8 +263,6 @@ impl Actor for Query {
                     unreachable!("a reading only arrives after the start message")
                 };
 
-                // Unwatch after the reply: a later terminated signal must not count this device
-                // again.
                 if let Some(device) = pending.remove(&device_id) {
                     context.unwatch(&device);
                 }

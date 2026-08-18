@@ -10,9 +10,10 @@ use std::{
     collections::HashMap,
     error::Error,
     fmt::{self, Display, Formatter},
+    future::Future,
     mem,
     panic::{AssertUnwindSafe, catch_unwind},
-    pin::pin,
+    pin::{Pin, pin},
     time::Duration,
 };
 use tokio::{
@@ -22,6 +23,8 @@ use tokio::{
     time::{Instant, sleep},
 };
 use tracing::{debug, error};
+
+pub(crate) const STATE_FAILED_TO_DROP: &str = "actor state failed to drop";
 
 /// Contextual methods for a given actor, provided to [Actor::init] and [Actor::receive].
 ///
@@ -119,7 +122,12 @@ impl<M> ActorContext<M> {
         }
     }
 
-    fn new(self_ref: SelfRef<M>) -> Self {
+    #[cfg(feature = "persistence")]
+    pub(crate) fn stopping_rx(&self) -> watch::Receiver<()> {
+        self.stopping_rx.clone()
+    }
+
+    pub(crate) fn new(self_ref: SelfRef<M>) -> Self {
         let (stopping_tx, stopping_rx) = watch::channel(());
 
         Self {
@@ -130,7 +138,7 @@ impl<M> ActorContext<M> {
         }
     }
 
-    fn take_watched_for(&mut self, other_id: ActorId) -> bool {
+    pub(crate) fn take_watched_for(&mut self, other_id: ActorId) -> bool {
         self.watched.get_mut().remove(&other_id).is_some()
     }
 
@@ -150,6 +158,63 @@ impl<M> ActorContext<M> {
         mem::take(self.watched.get_mut())
     }
 }
+
+/// `dyn Any` formats as "Any { .. }", hence the payload has to be downcast.
+pub(crate) struct PanicPayload<'a>(pub(crate) &'a (dyn Any + Send));
+
+impl Display for PanicPayload<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let payload = self
+            .0
+            .downcast_ref::<&'static str>()
+            .copied()
+            .or_else(|| self.0.downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("<non-string panic payload>");
+
+        f.write_str(payload)
+    }
+}
+
+// A macro, not an async fn: the run loops' message hot path must not pay for a nested state
+// machine. A terminated signal whose sender is no longer watched is dropped here, before the
+// actor ever sees it.
+macro_rules! next_incoming {
+    ($actor_id:expr, $mailbox:expr, $context:expr, $stopped_by_parent:expr) => {
+        'next_incoming: loop {
+            let incoming = tokio::select! {
+                biased;
+
+                _ = &mut $stopped_by_parent => {
+                    tracing::debug!(
+                        actor_id = %$actor_id,
+                        "stopping, because parent stopped this actor"
+                    );
+                    break 'next_incoming None;
+                }
+
+                incoming = $mailbox.recv() => {
+                    incoming.expect("self_ref keeps a mailbox handle alive")
+                }
+            };
+
+            if let crate::Incoming::Terminated(other) = &incoming
+                && !$context.take_watched_for(*other)
+            {
+                tracing::debug!(
+                    actor_id = %$actor_id,
+                    other_id = %*other,
+                    "dropping terminated signal for an unwatched actor"
+                );
+                continue;
+            }
+
+            break 'next_incoming Some(incoming);
+        }
+    };
+}
+
+#[cfg(feature = "persistence")]
+pub(crate) use next_incoming;
 
 pub(crate) fn spawn<A>(
     parent_stopping_rx: watch::Receiver<()>,
@@ -184,34 +249,12 @@ where
                     up_since = Some(Instant::now());
 
                     loop {
-                        let incoming = select! {
-                            biased;
-
-                            _ = &mut stopped_by_parent => {
-                                debug!(%actor_id, "stopping, because parent stopped this actor");
-                                drop_containing_panic(
-                                    actor_id,
-                                    "actor state failed to drop",
-                                    state,
-                                );
-                                break 'run;
-                            }
-
-                            incoming = mailbox.recv() => {
-                                incoming.expect("self_ref keeps a mailbox handle alive")
-                            }
+                        let incoming =
+                            next_incoming!(actor_id, mailbox, context, stopped_by_parent);
+                        let Some(incoming) = incoming else {
+                            drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
+                            break 'run;
                         };
-
-                        if let Incoming::Terminated(other) = &incoming
-                            && !context.take_watched_for(*other)
-                        {
-                            debug!(
-                                %actor_id,
-                                other_id = %*other,
-                                "dropping terminated signal for an unwatched actor"
-                            );
-                            continue;
-                        }
 
                         match receive_incoming(actor_id, &actor, &context, incoming, state) {
                             Some(Control::Continue(next_state)) => state = next_state,
@@ -226,43 +269,18 @@ where
                     }
                 }
 
-                let delay = match next_restart(config.supervision_strategy, up_since, &mut restarts)
-                {
-                    Restart::After(delay) => delay,
-
-                    Restart::LimitExceeded => {
-                        error!(%actor_id, "stopping, because the restart limit is exceeded");
-                        break;
-                    }
-
-                    Restart::NotConfigured => break,
-                };
-
-                if parent_stopping_rx.has_changed().unwrap_or(true) {
-                    debug!(%actor_id, "stopping, because parent stopped this actor");
+                let restart = await_restart(
+                    actor_id,
+                    config.supervision_strategy,
+                    up_since,
+                    &mut restarts,
+                    &parent_stopping_rx,
+                    &mut stopped_by_parent,
+                    &mut context,
+                )
+                .await;
+                if !restart {
                     break;
-                }
-                debug!(%actor_id, restarts, ?delay, "restarting");
-
-                context.stop_children().await;
-
-                // Again check if stopped by parent to avoid finding out after restarting.
-                if delay.is_zero() {
-                    if parent_stopping_rx.has_changed().unwrap_or(true) {
-                        debug!(%actor_id, "stopping, because parent stopped this actor");
-                        break;
-                    }
-                } else {
-                    select! {
-                        biased;
-
-                        _ = &mut stopped_by_parent => {
-                            debug!(%actor_id, "stopping, because parent stopped this actor");
-                            break;
-                        }
-
-                        _ = sleep(delay) => {}
-                    }
                 }
             }
 
@@ -273,58 +291,28 @@ where
     actor_ref
 }
 
-/// `dyn Any` formats as "Any { .. }", hence the payload has to be downcast.
-struct PanicPayload<'a>(&'a (dyn Any + Send));
-
-impl Display for PanicPayload<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let payload = self
-            .0
-            .downcast_ref::<&'static str>()
-            .copied()
-            .or_else(|| self.0.downcast_ref::<String>().map(String::as_str))
-            .unwrap_or("<non-string panic payload>");
-
-        f.write_str(payload)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum Restart {
-    After(Duration),
-    LimitExceeded,
-    NotConfigured,
-}
-
-#[cfg_attr(feature = "hotpath", hotpath::measure)]
-fn receive_incoming<A>(
-    actor_id: ActorId,
-    actor: &A,
-    context: &ActorContext<A::Message>,
-    incoming: Incoming<A::Message>,
-    state: A::State,
-) -> Option<Control<A::State>>
-where
-    A: Actor,
-{
-    catch_and_log(actor_id, "actor failed", || {
-        actor.receive(context, incoming, state)
-    })
-}
-
 /// The failure is consumed here, before the run loop's awaits, so `A::Error` need not be [Send].
-fn catch_and_log<T, E, F>(actor_id: ActorId, failure: &str, f: F) -> Option<T>
+pub(crate) fn catch_and_log<T, E, F>(actor_id: ActorId, failure: &str, f: F) -> Option<T>
 where
     E: Error,
     F: FnOnce() -> Result<T, E>,
 {
-    match catch_unwind(AssertUnwindSafe(f)) {
-        Ok(Ok(value)) => Some(value),
+    match catch_panic_and_log(actor_id, failure, f)? {
+        Ok(value) => Some(value),
 
-        Ok(Err(error)) => {
-            error!(%actor_id, %error, "{failure}");
+        Err(error) => {
+            error!(%actor_id, %error, source = error.source(), "{failure}");
             None
         }
+    }
+}
+
+pub(crate) fn catch_panic_and_log<T, F>(actor_id: ActorId, failure: &str, f: F) -> Option<T>
+where
+    F: FnOnce() -> T,
+{
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(value) => Some(value),
 
         Err(panic) => {
             error!(%actor_id, panic = %PanicPayload(panic.as_ref()), "{failure}");
@@ -334,32 +322,63 @@ where
 }
 
 /// A panic escaping the destructor must not unwind the task.
-fn drop_containing_panic<T>(actor_id: ActorId, failure: &str, value: T) {
+pub(crate) fn drop_containing_panic<T>(actor_id: ActorId, failure: &str, value: T) {
     if let Err(panic) = catch_unwind(AssertUnwindSafe(|| drop(value))) {
         error!(%actor_id, panic = %PanicPayload(panic.as_ref()), "{failure}");
     }
 }
 
-fn next_restart(
+pub(crate) async fn await_restart<F, M>(
+    actor_id: ActorId,
     supervision_strategy: SupervisionStrategy,
     up_since: Option<Instant>,
     restarts: &mut u32,
-) -> Restart {
-    let SupervisionStrategy::Restart(policy) = supervision_strategy else {
-        return Restart::NotConfigured;
+    parent_stopping_rx: &watch::Receiver<()>,
+    stopped_by_parent: &mut Pin<&mut F>,
+    context: &mut ActorContext<M>,
+) -> bool
+where
+    F: Future,
+{
+    let delay = match next_restart(supervision_strategy, up_since, restarts) {
+        Restart::After(delay) => delay,
+
+        Restart::LimitExceeded => {
+            error!(%actor_id, "stopping, because the restart limit is exceeded");
+            return false;
+        }
+
+        Restart::NotConfigured => return false,
     };
 
-    if up_since.is_some_and(|up_since| up_since.elapsed() >= policy.reset_after) {
-        *restarts = 0;
+    if parent_stopping_rx.has_changed().unwrap_or(true) {
+        debug!(%actor_id, "stopping, because parent stopped this actor");
+        return false;
     }
-    if *restarts >= policy.max_restarts.get() {
-        return Restart::LimitExceeded;
+    debug!(%actor_id, restarts = *restarts, ?delay, "restarting");
+
+    context.stop_children().await;
+
+    // Again check if stopped by parent to avoid finding out after restarting.
+    if delay.is_zero() {
+        if parent_stopping_rx.has_changed().unwrap_or(true) {
+            debug!(%actor_id, "stopping, because parent stopped this actor");
+            return false;
+        }
+    } else {
+        select! {
+            biased;
+
+            _ = stopped_by_parent.as_mut() => {
+                debug!(%actor_id, "stopping, because parent stopped this actor");
+                return false;
+            }
+
+            _ = sleep(delay) => {}
+        }
     }
 
-    let delay = policy.backoff.duration(*restarts);
-    *restarts += 1;
-
-    Restart::After(delay)
+    true
 }
 
 /// The state must already have been dropped by the caller. The queued messages are moved out and
@@ -368,10 +387,7 @@ fn next_restart(
 /// past the drain (flume retains such a message until its last sender drops); the watchers are
 /// signaled last, since a terminated signal must prove that the actor's destructors have run.
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
-async fn terminate<A>(actor: A, mut context: ActorContext<A::Message>, mailbox: Mailbox<A::Message>)
-where
-    A: Actor,
-{
+pub(crate) async fn terminate<A, M>(actor: A, mut context: ActorContext<M>, mailbox: Mailbox<M>) {
     let actor_id = context.self_ref().actor_id();
 
     let (incoming_rx, closed_mailbox) = mailbox.split();
@@ -397,12 +413,58 @@ where
                 %actor_id,
                 watcher_id = %watcher.watcher_id(),
                 %error,
+                source = error.source(),
                 "cannot send terminated signal"
             );
         }
     }
 
     debug!(%actor_id, "terminated");
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Restart {
+    After(Duration),
+    LimitExceeded,
+    NotConfigured,
+}
+
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
+fn receive_incoming<A>(
+    actor_id: ActorId,
+    actor: &A,
+    context: &ActorContext<A::Message>,
+    incoming: Incoming<A::Message>,
+    state: A::State,
+) -> Option<Control<A::State>>
+where
+    A: Actor,
+{
+    catch_and_log(actor_id, "actor failed", || {
+        actor.receive(context, incoming, state)
+    })
+}
+
+fn next_restart(
+    supervision_strategy: SupervisionStrategy,
+    up_since: Option<Instant>,
+    restarts: &mut u32,
+) -> Restart {
+    let SupervisionStrategy::Restart(policy) = supervision_strategy else {
+        return Restart::NotConfigured;
+    };
+
+    if up_since.is_some_and(|up_since| up_since.elapsed() >= policy.reset_after) {
+        *restarts = 0;
+    }
+    if *restarts >= policy.max_restarts.get() {
+        return Restart::LimitExceeded;
+    }
+
+    let delay = policy.backoff.duration(*restarts);
+    *restarts += 1;
+
+    Restart::After(delay)
 }
 
 #[cfg(test)]
