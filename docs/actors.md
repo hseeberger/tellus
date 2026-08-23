@@ -1,28 +1,28 @@
 # Actors
 
-This document explains how the waltz core works, from the public API down to the run loop: defining
+This document explains how the ferrier core works, from the public API down to the run loop: defining
 actors, the actor tree, messaging, supervision and death watch. The implementation lives in
-[`waltz/src`](../waltz/src). For a user-level summary see the [README](../waltz/README.md).
+[`ferrier/src`](../ferrier/src). For a user-level summary see the [README](../ferrier/README.md).
 
 ## Overview
 
 An actor is an independent unit of state processing one incoming message or signal at a time.
-waltz provides:
+ferrier provides:
 
-- typed, synchronous message handling via the [`Actor`](../waltz/src/actor.rs) trait: `receive`
+- typed, synchronous message handling via the [`Actor`](../ferrier/src/actor.rs) trait: `receive`
   is a plain function from the current state and the incoming message to the next state, with no
   future allocated or polled per message,
-- an actor tree: an [`ActorSystem`](../waltz/src/actor_system.rs) spawns the root actor and any
-  actor spawns children via [`ActorContext::spawn`](../waltz/src/actor_context.rs); stopping an
+- an actor tree: an [`ActorSystem`](../ferrier/src/actor_system.rs) spawns the root actor and any
+  actor spawns children via [`ActorContext::spawn`](../ferrier/src/actor_context.rs); stopping an
   actor stops its whole subtree, children first,
-- fire-and-forget, at-most-once messaging via [`ActorRef::tell`](../waltz/src/actor_ref.rs),
+- fire-and-forget, at-most-once messaging via [`ActorRef::tell`](../ferrier/src/actor_ref.rs),
   with undeliverable messages dropped and logged as dead letters,
-- request-response on top of that delivery: [`ActorRef::ask`](../waltz/src/actor_ref.rs) awaits a
+- request-response on top of that delivery: [`ActorRef::ask`](../ferrier/src/actor_ref.rs) awaits a
   reply from outside the actor tree and
-  [`ActorContext::reply_to`](../waltz/src/actor_context.rs) lets actors reply to each other
+  [`ActorContext::reply_to`](../ferrier/src/actor_context.rs) lets actors reply to each other
   through their ordinary mailboxes,
 - supervision: an actor failing with an error or a panic is stopped or restarted according to
-  its [`SupervisionStrategy`](../waltz/src/actor_config.rs),
+  its [`SupervisionStrategy`](../ferrier/src/actor_config.rs),
 - death watch with an ordering guarantee: a terminated signal arrives behind all messages the
   terminated actor has delivered to the watcher, so receiving it proves the watcher has seen
   every message from that actor it will ever see.
@@ -31,12 +31,12 @@ Each actor runs as one Tokio task and owns a mailbox, unbounded by default.
 
 ## A first example
 
-Condensed from [`examples/hello.rs`](../waltz/examples/hello.rs), a root actor which greets for
+Condensed from [`examples/hello.rs`](../ferrier/examples/hello.rs), a root actor which greets for
 the one message it receives and then stops:
 
 ```rust
 let system = ActorSystem::new(Greeter);
-system.root().tell(Greet("Waltz".to_string()));
+system.root().tell(Greet("Ferrier".to_string()));
 system.terminated().await?;
 ```
 
@@ -64,13 +64,13 @@ impl Actor for Greeter {
 }
 ```
 
-For a larger example see [`examples/scatter_gather.rs`](../waltz/examples/scatter_gather.rs),
+For a larger example see [`examples/scatter_gather.rs`](../ferrier/examples/scatter_gather.rs),
 where a root actor scatters a workload across watched workers and uses the ordering guarantee to
 know when all partial results are in.
 
 ## Defining an actor
 
-The [`Actor`](../waltz/src/actor.rs) trait separates the actor value from its state:
+The [`Actor`](../ferrier/src/actor.rs) trait separates the actor value from its state:
 
 - `Message` is the type of the received messages; actors which react to nothing use the
   uninhabited `Nothing`.
@@ -79,11 +79,11 @@ The [`Actor`](../waltz/src/actor.rs) trait separates the actor value from its st
 - `Error` is the failure type of `init` and `receive`; infallible actors use `Infallible`.
 
 `init` creates the initial state and may already spawn children or send messages. `receive` takes
-the state by value and returns [`Control`](../waltz/src/actor.rs): `Continue(next_state)`
+the state by value and returns [`Control`](../ferrier/src/actor.rs): `Continue(next_state)`
 designates the state handling the next message, `Stop` stops the actor. This makes an actor a
 state machine over owned values, with no interior mutability required.
 
-[`Incoming`](../waltz/src/actor.rs) is either `Message(M)` or the `Terminated(ActorId)` signal
+[`Incoming`](../ferrier/src/actor.rs) is either `Message(M)` or the `Terminated(ActorId)` signal
 for a watched actor. Handling both through one `receive` keeps signals ordered relative to
 messages (see death watch below).
 
@@ -93,8 +93,8 @@ running or blocking work, spawn a task and send its result back via `tell`.
 
 ## The actor tree
 
-[`ActorSystem::new`](../waltz/src/actor_system.rs) spawns the root actor and
-[`ActorContext::spawn`](../waltz/src/actor_context.rs) (available in `init` and `receive`) spawns
+[`ActorSystem::new`](../ferrier/src/actor_system.rs) spawns the root actor and
+[`ActorContext::spawn`](../ferrier/src/actor_context.rs) (available in `init` and `receive`) spawns
 children, so every actor has a parent and the whole application forms a tree. Spawning returns
 the child's `ActorRef` immediately; `init` runs inside the child's own task, and messages told
 before it completes simply queue in the mailbox.
@@ -105,7 +105,7 @@ resolves once the root, and therefore the entire tree, has terminated.
 
 ## Configuration
 
-[`ActorConfig`](../waltz/src/actor_config.rs), passed via `spawn_with_config` or
+[`ActorConfig`](../ferrier/src/actor_config.rs), passed via `spawn_with_config` or
 `ActorSystem::with_config`:
 
 | Field                  | Default     | Meaning                                                                       |
@@ -119,13 +119,13 @@ while terminated signals are still delivered.
 
 The `serde` feature makes the whole configuration deserializable, so it can come from a config file.
 The one invariant it carries, `min <= max` on the backoff bounds, lives in
-[`Backoff`](../waltz/src/backoff.rs): its fields are private and its constructor is fallible, and
+[`Backoff`](../ferrier/src/backoff.rs): its fields are private and its constructor is fallible, and
 deserialization is routed through that constructor via `#[serde(try_from = "...")]`. Every container
 can therefore be plain public data, since no reachable `Backoff` value is invalid.
 
 ## References and identity
 
-An [`ActorRef`](../waltz/src/actor_ref.rs) pairs an [`ActorId`](../waltz/src/actor_id.rs) (a
+An [`ActorRef`](../ferrier/src/actor_ref.rs) pairs an [`ActorId`](../ferrier/src/actor_id.rs) (a
 UUID v7, so IDs are unique and time-ordered) with a sender, and is cheap to clone and share.
 `tell` never blocks: if the actor has terminated or a bounded mailbox is full, the message is
 dropped and logged as a dead letter with the actor ID and message type. Even a delivered message
@@ -133,17 +133,17 @@ may go unprocessed if the actor stops first: delivery is at-most-once, end to en
 
 Internally the sender is the mailbox's sending half. The reference an actor gets for itself via
 `ActorContext::self_ref` pairs it with that same half (`SelfRef` in
-[`actor_ref.rs`](../waltz/src/actor_ref.rs)), which the watch mechanics below rely on.
+[`actor_ref.rs`](../ferrier/src/actor_ref.rs)), which the watch mechanics below rely on.
 
 ## Request-response
 
 Request-response is built on top of `tell`-style delivery, not beside it. A request message
-carries a [`ReplyTo`](../waltz/src/ask.rs), a single-shot destination for the reply: the
+carries a [`ReplyTo`](../ferrier/src/ask.rs), a single-shot destination for the reply: the
 responder calls `reply` exactly once, enforced by consumption, and cannot tell how the `ReplyTo`
 was created. Both creators erase their delivery mechanism behind it, which also leaves room for
 further backings.
 
-[`ActorRef::ask`](../waltz/src/actor_ref.rs) is the boundary API, for code outside of any actor:
+[`ActorRef::ask`](../ferrier/src/actor_ref.rs) is the boundary API, for code outside of any actor:
 `main`, tests, HTTP handlers, spawned tasks. The given function builds the request around a
 oneshot-backed `ReplyTo`, the request is sent like a tell, and the returned future resolves with
 the reply. Since the caller is awaiting, failures are returned instead of only logged:
@@ -154,7 +154,7 @@ best-effort, which is why every ask carries a timeout: `AskError::Timeout` resol
 once the given duration has elapsed without a reply, e.g. against a responder which keeps the
 `ReplyTo` alive without replying; a late reply is dropped as a dead letter.
 
-[`ActorContext::reply_to`](../waltz/src/actor_context.rs) is the actor side: it creates a
+[`ActorContext::reply_to`](../ferrier/src/actor_context.rs) is the actor side: it creates a
 `ReplyTo` which delivers the reply into this actor's own mailbox, converted into its message
 type by the given function, typically an enum variant constructor. No future is created or
 awaited; the reply arrives through `receive` like any other message, in the normal mailbox FIFO.
@@ -167,13 +167,13 @@ failing `receive` itself is not redelivered and hence resolves as `NoReply`.
 
 ## Mailboxes
 
-[`mailbox.rs`](../waltz/src/mailbox.rs). A mailbox is a FIFO channel of `Incoming<M>` split into
+[`mailbox.rs`](../ferrier/src/mailbox.rs). A mailbox is a FIFO channel of `Incoming<M>` split into
 a `MailboxHandle` (the sending half, cloned into every `ActorRef`) and a `Mailbox` (the receiving
 half, owned by the actor's run loop). Messages from one sender are received in the order they
 were sent.
 
 The underlying channel is always unbounded; a bounded mailbox is enforced by a lock-free
-reservation counter ([`quota.rs`](../waltz/src/quota.rs)) in front of it: a message reserves
+reservation counter ([`quota.rs`](../ferrier/src/quota.rs)) in front of it: a message reserves
 capacity before it is enqueued and releases it when it is received. This split is deliberate:
 terminated signals and capacity answer different needs, so `send_terminated` enqueues into the
 same FIFO channel (preserving order behind queued messages) but bypasses the capacity check,
@@ -188,7 +188,7 @@ registers once as a property of the map, and each watching actor records what it
 
 ## The run loop
 
-`spawn` in [`actor_context.rs`](../waltz/src/actor_context.rs), reached via
+`spawn` in [`actor_context.rs`](../ferrier/src/actor_context.rs), reached via
 `ActorContext::spawn_with_config` and by `spawn_root`, spawns one Tokio task per actor:
 
 1. Run `init`; a failure is fed to supervision just like a failure of `receive`, so under
@@ -207,7 +207,7 @@ is honored before further queued messages once the parent is stopping.
 
 Every actor owns a Tokio watch channel; its children hold receiver clones and every child task
 selects on it (the "parent stopping" branch of the run loop). The termination sequence, in
-`terminate` and `stop_children` in [`actor_context.rs`](../waltz/src/actor_context.rs):
+`terminate` and `stop_children` in [`actor_context.rs`](../ferrier/src/actor_context.rs):
 
 ```mermaid
 sequenceDiagram
@@ -240,7 +240,7 @@ until its last sender is dropped, which is why the `NoReply` detection is best-e
 
 ## Supervision and restarts
 
-[`SupervisionStrategy`](../waltz/src/actor_config.rs) decides what happens when `init` or
+[`SupervisionStrategy`](../ferrier/src/actor_config.rs) decides what happens when `init` or
 `receive` fails: `Stop` (the default) runs the termination sequence, `Restart` rebuilds the
 actor's state, limited and paced by its `RestartPolicy`.
 
@@ -252,7 +252,7 @@ and not redelivered. Before restarting, the loop probes whether the parent has m
 stopping and stops instead; the parent stopping also interrupts a backoff delay in progress.
 
 Failures form a streak: the n-th restart within a streak is delayed by `backoff.min() * 2^(n-1)`
-([`backoff.rs`](../waltz/src/backoff.rs)), capped at `backoff.max()`; once a streak exceeds
+([`backoff.rs`](../ferrier/src/backoff.rs)), capped at `backoff.max()`; once a streak exceeds
 `max_restarts`, the actor stops, which is how a persistent failure escalates to the watchers. A
 streak ends, resetting count and backoff, once the actor has run for at least `reset_after`
 without failing. Failures of `init` count into the same streak, including the first
@@ -275,7 +275,7 @@ signal only if its sender is still watched, consuming the watch, so a stale sign
 before `receive` ever sees it. The same watcher-side bookkeeping deregisters a terminating actor
 from everything it still watches.
 
-A watcher (in [`mailbox.rs`](../waltz/src/mailbox.rs)) is essentially a sending handle into the
+A watcher (in [`mailbox.rs`](../ferrier/src/mailbox.rs)) is essentially a sending handle into the
 watching actor's own mailbox, handed to the watched actor. At termination, after its destructors
 have run, the watched actor sends the terminated signal through it: into the same FIFO channel as
 all the messages it delivered to the watcher before, which is the entire mechanism behind the
@@ -288,7 +288,7 @@ before the signal or was dropped as a dead letter.
 
 ## Resolving `ActorSystem::terminated`
 
-`spawn_root` in [`actor_system.rs`](../waltz/src/actor_system.rs) spawns the root actor through
+`spawn_root` in [`actor_system.rs`](../ferrier/src/actor_system.rs) spawns the root actor through
 the same `spawn` path as any child and registers a watcher directly in the root's watcher
 registry. The watcher's sink resolves the oneshot behind `terminated()` and also owns the sender
 of the root's stop channel, so the root keeps running exactly until its own termination has
@@ -302,17 +302,17 @@ root stops on its own terms.
 Every drop path the framework controls contains destructor panics: the state dropped when the
 parent stops the actor as well as the actor value and the mailbox dropped at termination are all
 dropped under `catch_unwind` (`drop_containing_panic` in
-[`actor_context.rs`](../waltz/src/actor_context.rs)), so the panic is logged and termination
+[`actor_context.rs`](../ferrier/src/actor_context.rs)), so the panic is logged and termination
 completes, including the signals to the watchers. A destructor panic on a normal return of
 `receive` is equally contained: when `receive` returns an error and the state's destructor panics
 while the frame returns, that panic is caught like any other and fed to supervision. The locks the
-framework holds itself recover from poisoning ([`sync.rs`](../waltz/src/sync.rs)), so a panic
+framework holds itself recover from poisoning ([`sync.rs`](../ferrier/src/sync.rs)), so a panic
 contained by supervision cannot disable the watcher registry.
 
 The one case out of reach is a panic during a panic: `init` or `receive` panics, and while that
 panic unwinds, the destructor of a value still alive in the frame (the state, the message, a
 local) panics as well. Rust aborts the process on a panic during unwinding, below `catch_unwind`
-and hence below supervision. This is inherent to Rust, not specific to waltz: keep destructors
+and hence below supervision. This is inherent to Rust, not specific to ferrier: keep destructors
 panic-free.
 
 ## Guarantees and limitations

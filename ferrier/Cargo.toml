@@ -1,5 +1,5 @@
 [package]
-name          = "waltz"
+name          = "ferrier"
 description   = "An actor framework for Rust"
 version       = { workspace = true }
 edition       = { workspace = true }

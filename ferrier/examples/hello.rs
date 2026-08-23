@@ -1,17 +1,17 @@
-//! The minimal waltz program: a root actor which greets for the one message it receives and then
+//! The minimal ferrier program: a root actor which greets for the one message it receives and then
 //! stops, terminating the actor system.
 //!
 //! Keep this example in sync with the getting started snippet in the README, line by line.
 
 use anyhow::Context;
+use ferrier::{Actor, ActorContext, ActorSystem, Control, Incoming};
 use std::convert::Infallible;
-use waltz::{Actor, ActorContext, ActorSystem, Control, Incoming};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let system = ActorSystem::new(Greeter);
 
-    system.root().tell(Greet("Waltz".to_string()));
+    system.root().tell(Greet("Ferrier".to_string()));
 
     system
         .terminated()

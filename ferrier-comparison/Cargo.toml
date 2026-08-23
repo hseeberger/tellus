@@ -1,6 +1,6 @@
 [package]
-name          = "waltz-comparison"
-description   = "Benchmarks comparing waltz against other actor frameworks"
+name          = "ferrier-comparison"
+description   = "Benchmarks comparing ferrier against other actor frameworks"
 version       = { workspace = true }
 edition       = { workspace = true }
 license       = { workspace = true }
@@ -20,7 +20,7 @@ criterion = { workspace = true, features = [ "async_tokio" ] }
 kameo     = { workspace = true }
 ractor    = { workspace = true, features = [ "tokio_runtime" ] }
 tokio     = { workspace = true, features = [ "macros", "rt-multi-thread" ] }
-waltz     = { workspace = true }
+ferrier   = { workspace = true }
 
 [[bench]]
 name    = "frameworks"

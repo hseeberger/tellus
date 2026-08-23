@@ -1,3 +1,7 @@
+use ferrier::{
+    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Backoff, Control, Incoming, Nothing,
+    RestartPolicy, SupervisionStrategy,
+};
 use std::{
     num::NonZeroU32,
     sync::{
@@ -10,10 +14,6 @@ use thiserror::Error;
 use tokio::{
     sync::mpsc,
     time::{Instant, sleep, timeout},
-};
-use waltz::{
-    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Backoff, Control, Incoming, Nothing,
-    RestartPolicy, SupervisionStrategy,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(5);
