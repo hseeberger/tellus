@@ -19,9 +19,6 @@ trees and death watch with an ordering guarantee. Inspired by Carl Hewitt's
 [Actor Model](https://en.wikipedia.org/wiki/Actor_model) and strongly influenced by
 [Akka](https://akka.io).
 
-waltz is under active development: the API is unstable and the crate is not yet published to
-[crates.io](https://crates.io/).
-
 ## Packages
 
 - [`waltz`](waltz): the actor framework itself. See [its README](waltz/README.md) for highlights,
@@ -30,6 +27,19 @@ waltz is under active development: the API is unstable and the crate is not yet 
   [kameo](https://crates.io/crates/kameo) and [ractor](https://crates.io/crates/ractor). See
   [its README](waltz-comparison/README.md) for the methodology, fairness rules and caveats and the
   [comparison dashboard][comparison-url] for published results.
+
+## Roadmap
+
+waltz is under active development and its API is still settling.
+
+Two extensions are in the works, both feature gated, so waltz stays purely local and free of their
+dependencies by default:
+
+- persistence: event sourced actors, where commands are handled against the current state, the
+  events they cause are appended to an event store and only then applied, and the state is
+  recovered by replay, optionally shortcut by snapshots.
+- remoting: serializable actor refs, so actors on different nodes message and watch each other
+  through the very same API.
 
 ## Documentation
 
