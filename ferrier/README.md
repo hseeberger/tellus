@@ -1,14 +1,20 @@
 # ferrier
 
+[![Crates.io][crates-badge]][crates-url]
 [![license][license-badge]][license-url]
 [![build][build-badge]][build-url]
+[![docs][docs-badge]][docs-url]
 [![benchmarks][benchmarks-badge]][benchmarks-url]
 [![comparison][comparison-badge]][comparison-url]
 
+[crates-badge]: https://img.shields.io/crates/v/ferrier
+[crates-url]: https://crates.io/crates/ferrier
 [license-badge]: https://img.shields.io/github/license/hseeberger/ferrier
 [license-url]: https://github.com/hseeberger/ferrier/blob/main/LICENSE
 [build-badge]: https://img.shields.io/github/actions/workflow/status/hseeberger/ferrier/ci.yml
 [build-url]: https://github.com/hseeberger/ferrier/actions/workflows/ci.yml
+[docs-badge]: https://img.shields.io/docsrs/ferrier/latest
+[docs-url]: https://docs.rs/ferrier/latest/ferrier/
 [benchmarks-badge]: https://img.shields.io/badge/benchmarks-dashboard-informational
 [benchmarks-url]: https://hseeberger.github.io/ferrier/dev/bench/
 [comparison-badge]: https://img.shields.io/badge/comparison-dashboard-informational
