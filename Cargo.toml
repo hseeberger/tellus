@@ -1,14 +1,14 @@
 [workspace]
 resolver = "3"
-members  = [ "waltz", "waltz-comparison" ]
+members  = [ "ferrier", "ferrier-comparison" ]
 
 [workspace.package]
 version       = "0.1.0"
 edition       = "2024"
 license       = "Apache-2.0"
-homepage      = "https://github.com/hseeberger/waltz"
-repository    = "https://github.com/hseeberger/waltz"
-documentation = "https://github.com/hseeberger/waltz"
+homepage      = "https://github.com/hseeberger/ferrier"
+repository    = "https://github.com/hseeberger/ferrier"
+documentation = "https://github.com/hseeberger/ferrier"
 publish       = false
 
 [workspace.dependencies]
@@ -26,4 +26,4 @@ tokio              = { version = "1" }
 tracing            = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 uuid               = { version = "1.24" }
-waltz              = { path = "waltz" }
+ferrier            = { path = "ferrier" }

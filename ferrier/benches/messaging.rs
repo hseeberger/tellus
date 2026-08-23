@@ -7,6 +7,9 @@
 //!   four workers per core.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use ferrier::{
+    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Control, Incoming, MailboxCapacity,
+};
 use std::{
     convert::Infallible,
     num::NonZeroUsize,
@@ -14,9 +17,6 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::runtime::Runtime;
-use waltz::{
-    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Control, Incoming, MailboxCapacity,
-};
 
 const FLOOD_MESSAGES: usize = 100_000;
 const FLOOD_CAPACITY: NonZeroUsize =

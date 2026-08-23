@@ -1,25 +1,25 @@
-# waltz
+# ferrier
 
 [![license][license-badge]][license-url]
 [![build][build-badge]][build-url]
 [![benchmarks][benchmarks-badge]][benchmarks-url]
 [![comparison][comparison-badge]][comparison-url]
 
-[license-badge]: https://img.shields.io/github/license/hseeberger/waltz
-[license-url]: https://github.com/hseeberger/waltz/blob/main/LICENSE
-[build-badge]: https://img.shields.io/github/actions/workflow/status/hseeberger/waltz/ci.yml
-[build-url]: https://github.com/hseeberger/waltz/actions/workflows/ci.yml
+[license-badge]: https://img.shields.io/github/license/hseeberger/ferrier
+[license-url]: https://github.com/hseeberger/ferrier/blob/main/LICENSE
+[build-badge]: https://img.shields.io/github/actions/workflow/status/hseeberger/ferrier/ci.yml
+[build-url]: https://github.com/hseeberger/ferrier/actions/workflows/ci.yml
 [benchmarks-badge]: https://img.shields.io/badge/benchmarks-dashboard-informational
-[benchmarks-url]: https://hseeberger.github.io/waltz/dev/bench/
+[benchmarks-url]: https://hseeberger.github.io/ferrier/dev/bench/
 [comparison-badge]: https://img.shields.io/badge/comparison-dashboard-informational
-[comparison-url]: https://hseeberger.github.io/waltz/comparison/
+[comparison-url]: https://hseeberger.github.io/ferrier/comparison/
 
 An actor framework for Rust, built on [Tokio](https://tokio.rs): typed messages, supervision
 trees and death watch with an ordering guarantee. Inspired by Carl Hewitt's
 [Actor Model](https://en.wikipedia.org/wiki/Actor_model) and strongly influenced by
 [Akka](https://akka.io).
 
-waltz is under active development: the API is unstable and the crate is not yet published to
+ferrier is under active development: the API is unstable and the crate is not yet published to
 [crates.io](https://crates.io/).
 
 ## Highlights
@@ -49,13 +49,13 @@ waltz is under active development: the API is unstable and the crate is not yet 
 
 ## Getting started
 
-waltz is not yet on crates.io; use a git dependency:
+ferrier is not yet on crates.io; use a git dependency:
 
 ```toml
 [dependencies]
 anyhow = { version = "1.0" }
 tokio  = { version = "1", features = [ "macros", "rt-multi-thread" ] }
-waltz  = { git = "https://github.com/hseeberger/waltz" }
+ferrier  = { git = "https://github.com/hseeberger/ferrier" }
 ```
 
 A minimal actor system with a single actor which handles one message and stops:
@@ -63,12 +63,12 @@ A minimal actor system with a single actor which handles one message and stops:
 ```rust
 use anyhow::Context;
 use std::convert::Infallible;
-use waltz::{Actor, ActorContext, ActorSystem, Control, Incoming};
+use ferrier::{Actor, ActorContext, ActorSystem, Control, Incoming};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let system = ActorSystem::new(Greeter);
-    system.root().tell(Greet("Waltz".to_string()));
+    system.root().tell(Greet("Ferrier".to_string()));
     system
         .terminated()
         .await
@@ -207,7 +207,7 @@ supervision_strategy:
       max: 4s
 ```
 
-waltz stays format agnostic and pulls in no parser of its own, so picking the loader is up to the
+ferrier stays format agnostic and pulls in no parser of its own, so picking the loader is up to the
 application. [`config`](https://crates.io/crates/config) is the recommended one: it normalizes every
 format into one value tree before deserializing, which is what makes the YAML above plain maps, and
 it reports the key path along with any error. Note that `serde_yaml` deserializes the same types
@@ -230,7 +230,7 @@ level configured via `RUST_LOG`.
 - [`hello`](examples/hello.rs): the getting started snippet above:
 
   ```shell
-  cargo run --quiet -p waltz --example hello
+  cargo run --quiet -p ferrier --example hello
   ```
 
 - [`counter`](examples/counter.rs): a counter actor showing the two send modes: `tell` fires
@@ -238,7 +238,7 @@ level configured via `RUST_LOG`.
   reply under a timeout:
 
   ```shell
-  cargo run --quiet -p waltz --example counter
+  cargo run --quiet -p ferrier --example counter
   ```
 
 - [`scatter_gather`](examples/scatter_gather.rs): a root actor scatters a workload across worker
@@ -246,7 +246,7 @@ level configured via `RUST_LOG`.
   using the watch ordering guarantee to know when all results are in:
 
   ```shell
-  RUST_LOG=waltz=debug cargo run --quiet -p waltz --example scatter_gather
+  RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example scatter_gather
   ```
 
 - [`supervision`](examples/supervision.rs): a flaky worker under the `Restart` supervision
@@ -254,7 +254,7 @@ level configured via `RUST_LOG`.
   retains (the actor value and the mailbox):
 
   ```shell
-  RUST_LOG=waltz=debug cargo run --quiet -p waltz --example supervision
+  RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example supervision
   ```
 
 - [`work_pulling`](examples/work_pulling.rs): workers request jobs from a manager whenever they
@@ -262,16 +262,16 @@ level configured via `RUST_LOG`.
   dropping work:
 
   ```shell
-  RUST_LOG=waltz=debug cargo run --quiet -p waltz --example work_pulling
+  RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example work_pulling
   ```
 
-- [`device_manager`](examples/device_manager.rs): waltz's take on Akka's IoT device manager and
+- [`device_manager`](examples/device_manager.rs): ferrier's take on Akka's IoT device manager and
   the capstone of this list: a dynamic actor hierarchy with watch-based registry pruning, `ask` at
   the async boundary, a per-request query child aggregating device replies exactly thanks to the
   ordering guarantee, and restarting devices:
 
   ```shell
-  RUST_LOG=waltz=debug cargo run --quiet -p waltz --example device_manager
+  RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example device_manager
   ```
 
 ## License

@@ -1,22 +1,22 @@
-//! waltz's take on Akka's IoT device manager: the root routes commands to per-group and per-device
-//! actors, spawning them on demand and pruning its registry via watch. Reading a group's average
-//! temperature is served by a per-request `Query` child which fans `Read` out to every device: the
-//! watch ordering guarantee proves that a terminated device will never reply, so the only deadline
-//! needed is the timeout of the `ask` at the async boundary. Devices restart on failure: an
-//! invalid reading fails the device, which loses its last reading but keeps its mailbox, so it
-//! answers the queued read with no reading yet.
+//! ferrier's take on Akka's IoT device manager: the root routes commands to per-group and
+//! per-device actors, spawning them on demand and pruning its registry via watch. Reading a group's
+//! average temperature is served by a per-request `Query` child which fans `Read` out to every
+//! device: the watch ordering guarantee proves that a terminated device will never reply, so the
+//! only deadline needed is the timeout of the `ask` at the async boundary. Devices restart on
+//! failure: an invalid reading fails the device, which loses its last reading but keeps its
+//! mailbox, so it answers the queued read with no reading yet.
 //!
-//! The averages are printed to stdout and waltz logs to stderr; the log level is configured via
-//! `RUST_LOG`, e.g. `RUST_LOG=waltz=debug cargo run --quiet -p waltz --example device_manager`.
+//! The averages are printed to stdout and ferrier logs to stderr; the log level is configured via
+//! `RUST_LOG`, e.g. `RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example device_manager`.
 
 use anyhow::Context;
-use std::{collections::HashMap, convert::Infallible, io, num::NonZeroU32, time::Duration};
-use thiserror::Error;
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-use waltz::{
+use ferrier::{
     Actor, ActorConfig, ActorContext, ActorId, ActorRef, ActorSystem, Control, Incoming, ReplyTo,
     RestartPolicy, SupervisionStrategy,
 };
+use std::{collections::HashMap, convert::Infallible, io, num::NonZeroU32, time::Duration};
+use thiserror::Error;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 const MAX_RESTARTS: NonZeroU32 = NonZeroU32::new(3).expect("3 is not zero");
 

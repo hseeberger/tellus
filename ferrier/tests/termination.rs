@@ -1,7 +1,7 @@
+use ferrier::{Actor, ActorContext, ActorRef, ActorSystem, Control, Incoming, Nothing};
 use std::{convert::Infallible, time::Duration};
 use thiserror::Error;
 use tokio::{sync::mpsc, time::timeout};
-use waltz::{Actor, ActorContext, ActorRef, ActorSystem, Control, Incoming, Nothing};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 const SELF_SENDS: usize = 1_000;

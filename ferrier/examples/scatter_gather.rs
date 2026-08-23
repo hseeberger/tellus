@@ -6,13 +6,13 @@
 //! Hence, once all workers have terminated, the root can print the total and stop, which terminates
 //! the actor system.
 //!
-//! The total is printed to stdout and waltz logs to stderr; the log level is configured via
-//! `RUST_LOG`, e.g. `RUST_LOG=waltz=debug cargo run --quiet -p waltz --example scatter_gather`.
+//! The total is printed to stdout and ferrier logs to stderr; the log level is configured via
+//! `RUST_LOG`, e.g. `RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example scatter_gather`.
 
 use anyhow::Context;
+use ferrier::{Actor, ActorContext, ActorSystem, Control, Incoming, ReplyTo};
 use std::{convert::Infallible, io, ops::Range};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-use waltz::{Actor, ActorContext, ActorSystem, Control, Incoming, ReplyTo};
 
 const SHARDS: [Range<u64>; 4] = [1..26, 26..51, 51..76, 76..101];
 

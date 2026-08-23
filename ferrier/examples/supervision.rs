@@ -4,18 +4,18 @@
 //! rebuilt from zero. More than `max_restarts` failures in a streak would stop the loader instead,
 //! escalating to the watching root.
 //!
-//! The output is printed to stdout and waltz logs the failures and restarts to stderr; the log
+//! The output is printed to stdout and ferrier logs the failures and restarts to stderr; the log
 //! level is configured via `RUST_LOG`, e.g.
-//! `RUST_LOG=waltz=debug cargo run --quiet -p waltz --example supervision`.
+//! `RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example supervision`.
 
 use anyhow::Context;
-use std::{convert::Infallible, io, num::NonZeroU32, time::Duration};
-use thiserror::Error;
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-use waltz::{
+use ferrier::{
     Actor, ActorConfig, ActorContext, ActorSystem, Backoff, Control, Incoming, Nothing,
     RestartPolicy, SupervisionStrategy,
 };
+use std::{convert::Infallible, io, num::NonZeroU32, time::Duration};
+use thiserror::Error;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 const TOXIC: u32 = 13;
 const MAX_RESTARTS: NonZeroU32 = NonZeroU32::new(3).expect("3 is not zero");

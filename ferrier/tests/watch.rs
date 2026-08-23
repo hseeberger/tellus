@@ -1,3 +1,7 @@
+use ferrier::{
+    Actor, ActorConfig, ActorContext, ActorId, ActorRef, ActorSystem, Control, Incoming,
+    MailboxCapacity, Nothing,
+};
 use std::{
     convert::Infallible,
     hint,
@@ -5,10 +9,6 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{sync::mpsc, task::block_in_place, time::timeout};
-use waltz::{
-    Actor, ActorConfig, ActorContext, ActorId, ActorRef, ActorSystem, Control, Incoming,
-    MailboxCapacity, Nothing,
-};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 const BOUNDED_TO_ONE: MailboxCapacity = MailboxCapacity::Bounded(NonZeroUsize::MIN);

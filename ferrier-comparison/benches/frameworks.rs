@@ -50,14 +50,14 @@ type PlainBench = (&'static str, fn(u64) -> BoxedBench);
 type ParameterizedBench = (&'static str, fn(u64, usize) -> BoxedBench);
 
 const FLOOD_BENCHES: [PlainBench; 3] = [
-    ("waltz", |iters| Box::pin(waltz_bench::flood(iters))),
+    ("ferrier", |iters| Box::pin(ferrier_bench::flood(iters))),
     ("kameo", |iters| Box::pin(kameo_bench::flood(iters))),
     ("ractor", |iters| Box::pin(ractor_bench::flood(iters))),
 ];
 
 const PING_PONG_BENCHES: [ParameterizedBench; 3] = [
-    ("waltz", |iters, pairs| {
-        Box::pin(waltz_bench::ping_pong(iters, pairs))
+    ("ferrier", |iters, pairs| {
+        Box::pin(ferrier_bench::ping_pong(iters, pairs))
     }),
     ("kameo", |iters, pairs| {
         Box::pin(kameo_bench::ping_pong(iters, pairs))
@@ -68,8 +68,8 @@ const PING_PONG_BENCHES: [ParameterizedBench; 3] = [
 ];
 
 const FAN_OUT_BENCHES: [ParameterizedBench; 3] = [
-    ("waltz", |iters, workers| {
-        Box::pin(waltz_bench::fan_out(iters, workers))
+    ("ferrier", |iters, workers| {
+        Box::pin(ferrier_bench::fan_out(iters, workers))
     }),
     ("kameo", |iters, workers| {
         Box::pin(kameo_bench::fan_out(iters, workers))
@@ -167,10 +167,10 @@ fn workspace_output_directory() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../target/criterion-comparison")
 }
 
-mod waltz_bench {
+mod ferrier_bench {
     use crate::{FLOOD_MESSAGES, PING_PONG_ROUNDS, count_down, fan_out_share, measure};
+    use ferrier::{Actor, ActorContext, ActorRef, ActorSystem, Control, Incoming};
     use std::{convert::Infallible, time::Duration};
-    use waltz::{Actor, ActorContext, ActorRef, ActorSystem, Control, Incoming};
 
     pub async fn flood(iters: u64) -> Duration {
         measure(
@@ -186,7 +186,7 @@ mod waltz_bench {
                 for _ in 0..FLOOD_MESSAGES {
                     root.tell(Tick);
                 }
-                system.terminated().await.expect("waltz flood terminates");
+                system.terminated().await.expect("ferrier flood terminates");
             },
         )
         .await
@@ -212,7 +212,7 @@ mod waltz_bench {
                     system
                         .terminated()
                         .await
-                        .expect("waltz ping_pong terminates");
+                        .expect("ferrier ping_pong terminates");
                 }
             },
         )
@@ -238,7 +238,10 @@ mod waltz_bench {
                     root.tell(Tick);
                 }
                 for system in systems {
-                    system.terminated().await.expect("waltz fan_out terminates");
+                    system
+                        .terminated()
+                        .await
+                        .expect("ferrier fan_out terminates");
                 }
             },
         )
@@ -484,7 +487,7 @@ mod kameo_bench {
             })
         }
 
-        // Must complete before wait_for_shutdown resolves, like waltz's child barrier does!
+        // Must complete before wait_for_shutdown resolves, like ferrier's child barrier does!
         async fn on_stop(
             &mut self,
             _: WeakActorRef<Self>,
@@ -697,7 +700,7 @@ mod ractor_bench {
             })
         }
 
-        // Must complete before the pinger's own join handle resolves, like waltz's child barrier!
+        // Must complete before the pinger's own join handle resolves, like ferrier's child barrier!
         async fn post_stop(
             &self,
             _: ActorRef<Self::Msg>,

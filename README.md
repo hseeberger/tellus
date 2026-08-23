@@ -1,18 +1,18 @@
-# waltz
+# ferrier
 
 [![license][license-badge]][license-url]
 [![build][build-badge]][build-url]
 [![benchmarks][benchmarks-badge]][benchmarks-url]
 [![comparison][comparison-badge]][comparison-url]
 
-[license-badge]: https://img.shields.io/github/license/hseeberger/waltz
-[license-url]: https://github.com/hseeberger/waltz/blob/main/LICENSE
-[build-badge]: https://img.shields.io/github/actions/workflow/status/hseeberger/waltz/ci.yml
-[build-url]: https://github.com/hseeberger/waltz/actions/workflows/ci.yml
+[license-badge]: https://img.shields.io/github/license/hseeberger/ferrier
+[license-url]: https://github.com/hseeberger/ferrier/blob/main/LICENSE
+[build-badge]: https://img.shields.io/github/actions/workflow/status/hseeberger/ferrier/ci.yml
+[build-url]: https://github.com/hseeberger/ferrier/actions/workflows/ci.yml
 [benchmarks-badge]: https://img.shields.io/badge/benchmarks-dashboard-informational
-[benchmarks-url]: https://hseeberger.github.io/waltz/dev/bench/
+[benchmarks-url]: https://hseeberger.github.io/ferrier/dev/bench/
 [comparison-badge]: https://img.shields.io/badge/comparison-dashboard-informational
-[comparison-url]: https://hseeberger.github.io/waltz/comparison/
+[comparison-url]: https://hseeberger.github.io/ferrier/comparison/
 
 An actor framework for Rust, built on [Tokio](https://tokio.rs): typed messages, supervision
 trees and death watch with an ordering guarantee. Inspired by Carl Hewitt's
@@ -21,18 +21,18 @@ trees and death watch with an ordering guarantee. Inspired by Carl Hewitt's
 
 ## Packages
 
-- [`waltz`](waltz): the actor framework itself. See [its README](waltz/README.md) for highlights,
+- [`ferrier`](ferrier): the actor framework itself. See [its README](ferrier/README.md) for highlights,
   getting started and the core concepts.
-- [`waltz-comparison`](waltz-comparison): messaging benchmarks comparing waltz against
+- [`ferrier-comparison`](ferrier-comparison): messaging benchmarks comparing ferrier against
   [kameo](https://crates.io/crates/kameo) and [ractor](https://crates.io/crates/ractor). See
-  [its README](waltz-comparison/README.md) for the methodology, fairness rules and caveats and the
+  [its README](ferrier-comparison/README.md) for the methodology, fairness rules and caveats and the
   [comparison dashboard][comparison-url] for published results.
 
 ## Roadmap
 
-waltz is under active development and its API is still settling.
+ferrier is under active development and its API is still settling.
 
-Two extensions are in the works, both feature gated, so waltz stays purely local and free of their
+Two extensions are in the works, both feature gated, so ferrier stays purely local and free of their
 dependencies by default:
 
 - persistence: event sourced actors, where commands are handled against the current state, the
@@ -43,7 +43,7 @@ dependencies by default:
 
 ## Documentation
 
-How waltz works under the hood, top-down with links into the implementation:
+How ferrier works under the hood, top-down with links into the implementation:
 
 - [docs/actors.md](docs/actors.md): the core, from the `Actor` trait down to the run loop.
 

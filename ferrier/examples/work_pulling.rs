@@ -3,20 +3,21 @@
 //! A worker thus never has more than one job in flight, which makes a bounded mailbox of capacity
 //! one provably sufficient: backpressure by design, without dropping work.
 //!
-//! The word counts are printed to stdout and waltz logs to stderr; the log level is configured via
-//! `RUST_LOG`, e.g. `RUST_LOG=waltz=debug cargo run --quiet -p waltz --example work_pulling`.
+//! The word counts are printed to stdout and ferrier logs to stderr; the log level is configured
+//! via `RUST_LOG`, e.g. `RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example
+//! work_pulling`.
 
 use anyhow::Context;
+use ferrier::{
+    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Control, Incoming, MailboxCapacity,
+    ReplyTo,
+};
 use std::{
     convert::{Infallible, identity},
     io,
     num::NonZeroUsize,
 };
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-use waltz::{
-    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Control, Incoming, MailboxCapacity,
-    ReplyTo,
-};
 
 const DOCUMENTS: [&str; 6] = [
     "the quick brown fox jumps over the lazy dog",

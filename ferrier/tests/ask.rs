@@ -1,3 +1,7 @@
+use ferrier::{
+    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, AskError, Backoff, Control, Incoming,
+    MailboxCapacity, ReplyTo, RestartPolicy, SupervisionStrategy,
+};
 use std::{
     convert::Infallible,
     future::Future,
@@ -10,10 +14,6 @@ use tokio::{
     sync::mpsc,
     task::{block_in_place, spawn},
     time::timeout,
-};
-use waltz::{
-    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, AskError, Backoff, Control, Incoming,
-    MailboxCapacity, ReplyTo, RestartPolicy, SupervisionStrategy,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(5);

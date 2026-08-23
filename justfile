@@ -6,11 +6,11 @@ nightly := `rustc --version | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sed 's/^/n
 bench_regression_threshold := "0.15"
 
 check:
-    cargo check -p waltz --all-targets
-    cargo check -p waltz --all-targets --features serde
+    cargo check -p ferrier --all-targets
+    cargo check -p ferrier --all-targets --features serde
 
 fix:
-    cargo fix -p waltz --all-targets --allow-dirty --allow-staged
+    cargo fix -p ferrier --all-targets --allow-dirty --allow-staged
 
 fmt:
     cargo +{{ nightly }} fmt
@@ -20,32 +20,32 @@ fmt-check:
     cargo +{{ nightly }} fmt --check
 
 lint:
-    cargo clippy -p waltz --all-targets --no-deps                  -- -D warnings
-    cargo clippy -p waltz --all-targets --no-deps --features serde -- -D warnings
+    cargo clippy -p ferrier --all-targets --no-deps                  -- -D warnings
+    cargo clippy -p ferrier --all-targets --no-deps --features serde -- -D warnings
 
 lint-fix:
-    cargo clippy -p waltz --all-targets --no-deps --allow-dirty --allow-staged --fix
+    cargo clippy -p ferrier --all-targets --no-deps --allow-dirty --allow-staged --fix
 
 test:
-    cargo test -p waltz
-    cargo test -p waltz --features serde
+    cargo test -p ferrier
+    cargo test -p ferrier --features serde
 
 doc:
-    RUSTDOCFLAGS="-D warnings" cargo +{{ nightly }} doc -p waltz --no-deps --all-features
+    RUSTDOCFLAGS="-D warnings" cargo +{{ nightly }} doc -p ferrier --no-deps --all-features
 
 all: check fmt lint test doc
 
 bench:
-    cargo bench -p waltz
+    cargo bench -p ferrier
 
 bench-save baseline:
-    cargo bench -p waltz --bench messaging -- --save-baseline {{ baseline }}
+    cargo bench -p ferrier --bench messaging -- --save-baseline {{ baseline }}
 
 bench-compare baseline:
-    cargo bench -p waltz --bench messaging -- --baseline-lenient {{ baseline }}
+    cargo bench -p ferrier --bench messaging -- --baseline-lenient {{ baseline }}
 
 bench-bencher:
-    cargo bench -p waltz --bench messaging -- --output-format bencher
+    cargo bench -p ferrier --bench messaging -- --output-format bencher
 
 bench-report:
     #!/usr/bin/env bash
@@ -72,31 +72,31 @@ bench-report:
     fi
 
 comparison:
-    cargo bench -p waltz-comparison --bench frameworks
+    cargo bench -p ferrier-comparison --bench frameworks
 
 comparison-report tag="local":
-    cargo run -p waltz-comparison --bin report -- --tag {{ tag }}
+    cargo run -p ferrier-comparison --bin report -- --tag {{ tag }}
 
 comparison-check:
-    cargo check -p waltz-comparison --all-targets
+    cargo check -p ferrier-comparison --all-targets
 
 comparison-lint:
-    cargo clippy -p waltz-comparison --all-targets --no-deps -- -D warnings
+    cargo clippy -p ferrier-comparison --all-targets --no-deps -- -D warnings
 
 run-examples-hello:
-    cargo run -p waltz --example hello
+    cargo run -p ferrier --example hello
 
 run-examples-counter:
-    cargo run -p waltz --example counter
+    cargo run -p ferrier --example counter
 
 run-examples-scatter-gather:
-    RUST_LOG=waltz=debug cargo run -p waltz --example scatter_gather
+    RUST_LOG=ferrier=debug cargo run -p ferrier --example scatter_gather
 
 run-examples-supervision:
-    RUST_LOG=waltz=debug cargo run -p waltz --example supervision
+    RUST_LOG=ferrier=debug cargo run -p ferrier --example supervision
 
 run-examples-work-pulling:
-    RUST_LOG=waltz=debug cargo run -p waltz --example work_pulling
+    RUST_LOG=ferrier=debug cargo run -p ferrier --example work_pulling
 
 run-examples-device-manager:
-    RUST_LOG=waltz=debug cargo run -p waltz --example device_manager
+    RUST_LOG=ferrier=debug cargo run -p ferrier --example device_manager
