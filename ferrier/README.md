@@ -53,9 +53,9 @@ ferrier is not yet on crates.io; use a git dependency:
 
 ```toml
 [dependencies]
-anyhow = { version = "1.0" }
-tokio  = { version = "1", features = [ "macros", "rt-multi-thread" ] }
-ferrier  = { git = "https://github.com/hseeberger/ferrier" }
+anyhow  = { version = "1.0" }
+tokio   = { version = "1", features = [ "macros", "rt-multi-thread" ] }
+ferrier = { version = "0.1" }
 ```
 
 A minimal actor system with a single actor which handles one message and stops:
