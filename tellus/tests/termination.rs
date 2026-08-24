@@ -1,5 +1,5 @@
-use ferrier::{Actor, ActorContext, ActorRef, ActorSystem, Control, Incoming, Nothing};
 use std::{convert::Infallible, time::Duration};
+use tellus::{Actor, ActorContext, ActorRef, ActorSystem, Control, Incoming, Nothing};
 use thiserror::Error;
 use tokio::{sync::mpsc, time::timeout};
 

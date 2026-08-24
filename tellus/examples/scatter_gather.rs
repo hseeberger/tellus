@@ -6,12 +6,12 @@
 //! Hence, once all workers have terminated, the root can print the total and stop, which terminates
 //! the actor system.
 //!
-//! The total is printed to stdout and ferrier logs to stderr; the log level is configured via
-//! `RUST_LOG`, e.g. `RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example scatter_gather`.
+//! The total is printed to stdout and tellus logs to stderr; the log level is configured via
+//! `RUST_LOG`, e.g. `RUST_LOG=tellus=debug cargo run --quiet -p tellus --example scatter_gather`.
 
 use anyhow::Context;
-use ferrier::{Actor, ActorContext, ActorSystem, Control, Incoming, ReplyTo};
 use std::{convert::Infallible, io, ops::Range};
+use tellus::{Actor, ActorContext, ActorSystem, Control, Incoming, ReplyTo};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 const SHARDS: [Range<u64>; 4] = [1..26, 26..51, 51..76, 76..101];

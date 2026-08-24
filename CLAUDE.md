@@ -6,29 +6,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tasks are defined in the [justfile](justfile):
 
-- `just all`: check, fmt, lint, test and doc; the full local gate for the `ferrier` crate.
-- `just check` / `just lint` / `just test` / `just doc`: the individual steps, all scoped to `-p ferrier` and each run twice, with the `serde` feature off and on.
+- `just all`: check, fmt, lint, test and doc; the full local gate for the `tellus` crate.
+- `just check` / `just lint` / `just test` / `just doc`: the individual steps, all scoped to `-p tellus` and each run twice, with the `serde` feature off and on.
 - `just fmt`: formats Rust (nightly rustfmt, the justfile derives the matching nightly from the installed stable) and TOML (taplo). Plain `cargo fmt` is not enough; the rustfmt config uses unstable options.
-- Single test: `cargo test -p ferrier --test watch <test_name>` (integration tests live in `ferrier/tests/`: `supervision.rs`, `termination.rs`, `watch.rs`).
+- Single test: `cargo test -p tellus --test watch <test_name>` (integration tests live in `tellus/tests/`: `supervision.rs`, `termination.rs`, `watch.rs`).
 - Examples: `just run-examples-hello`, `just run-examples-scatter-gather`.
 
 Benchmarks:
 
-- `just bench`: ferrier's own criterion regression benchmarks (`ferrier/benches/messaging.rs`); `just bench-save <baseline>` / `just bench-compare <baseline>` for local before/after comparisons. CI benchmarks every PR against its merge base and flags a regression at 95% confidence of at least 15% slowdown.
-- `just comparison` plus `comparison-check` / `comparison-lint`: the `ferrier-comparison` crate benchmarking ferrier against kameo and ractor. It is deliberately excluded from `just all` and from per-PR CI so its dependencies stay out of ferrier's build; touching it means running its own check and lint recipes.
+- `just bench`: tellus's own criterion regression benchmarks (`tellus/benches/messaging.rs`); `just bench-save <baseline>` / `just bench-compare <baseline>` for local before/after comparisons. CI benchmarks every PR against its merge base and flags a regression at 95% confidence of at least 15% slowdown.
+- `just comparison` plus `comparison-check` / `comparison-lint`: the `tellus-comparison` crate benchmarking tellus against kameo and ractor. It is deliberately excluded from `just all` and from per-PR CI so its dependencies stay out of tellus's build; touching it means running its own check and lint recipes.
 
 CI enforces that a PR consists of exactly one commit; squash before pushing.
 
 ## Workspace layout
 
-- `ferrier/`: the actor framework, the only published-facing crate.
-- `ferrier-comparison/`: competitive benchmarks with strict fairness rules (unbounded mailboxes everywhere, fire-and-forget sends only, identical timing boundaries); read its README before changing any benchmark.
-- `docs/actors.md`: the authoritative top-down explanation of the core, from the `Actor` trait to the run loop, with links into the implementation. Read it before changing `ferrier/src`; keep it consistent with implementation changes.
+- `tellus/`: the actor framework, the only published-facing crate.
+- `tellus-comparison/`: competitive benchmarks with strict fairness rules (unbounded mailboxes everywhere, fire-and-forget sends only, identical timing boundaries); read its README before changing any benchmark.
+- `docs/actors.md`: the authoritative top-down explanation of the core, from the `Actor` trait to the run loop, with links into the implementation. Read it before changing `tellus/src`; keep it consistent with implementation changes.
 - `mentor/`: generated code-review artifacts, not source code.
 
 ## Architecture
 
-The core is small (~1200 lines in `ferrier/src`) but dense with cross-file invariants:
+The core is small (~1200 lines in `tellus/src`) but dense with cross-file invariants:
 
 - An actor is a state machine: `Actor::receive` (`actor.rs`) is a synchronous function from owned state and an `Incoming` (message or terminated signal) to `Control::Continue(next_state)` or `Control::Stop`. No async, no `&mut self`; each actor runs as one Tokio task.
 - `actor_context.rs` holds the run loop, spawning and the termination sequence. Actors form a tree; termination is bottom-up, with each actor's Tokio watch channel closing (all child receivers dropped) as the barrier proving every descendant has terminated. The state is dropped before the children are stopped; only the actor value waits for the barrier, and the watchers are signaled last: a terminated signal must prove the actor's destructors have run.
@@ -37,4 +37,4 @@ The core is small (~1200 lines in `ferrier/src`) but dense with cross-file invar
 - Supervision (`actor_config.rs`): errors and panics (both `init` and `receive` run under `catch_unwind`) are handled identically; `Restart` rebuilds only the state via `init` on the same actor value, retains the mailbox, and backs off exponentially in failure streaks.
 - `actor_system.rs`: `spawn_root` spawns the root through the same `spawn` path as any child and registers a watcher directly in the root's watcher registry; the watcher's sink resolves `terminated()` and owns the sender keeping the root running.
 
-Changes to the run loop, mailbox or termination sequence almost always affect the ordering and watch guarantees spelled out in `docs/actors.md`; the integration tests in `ferrier/tests/` encode those guarantees.
+Changes to the run loop, mailbox or termination sequence almost always affect the ordering and watch guarantees spelled out in `docs/actors.md`; the integration tests in `tellus/tests/` encode those guarantees.

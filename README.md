@@ -1,38 +1,53 @@
-# ferrier
+# tellus
 
+**Actors for Rust, on solid ground.**
+
+[![Crates.io][crates-badge]][crates-url]
 [![license][license-badge]][license-url]
 [![build][build-badge]][build-url]
+[![docs][docs-badge]][docs-url]
 [![benchmarks][benchmarks-badge]][benchmarks-url]
 [![comparison][comparison-badge]][comparison-url]
 
-[license-badge]: https://img.shields.io/github/license/hseeberger/ferrier
-[license-url]: https://github.com/hseeberger/ferrier/blob/main/LICENSE
-[build-badge]: https://img.shields.io/github/actions/workflow/status/hseeberger/ferrier/ci.yml
-[build-url]: https://github.com/hseeberger/ferrier/actions/workflows/ci.yml
+[crates-badge]: https://img.shields.io/crates/v/tellus
+[crates-url]: https://crates.io/crates/tellus
+[license-badge]: https://img.shields.io/github/license/hseeberger/tellus
+[license-url]: https://github.com/hseeberger/tellus/blob/main/LICENSE
+[build-badge]: https://img.shields.io/github/actions/workflow/status/hseeberger/tellus/ci.yml
+[build-url]: https://github.com/hseeberger/tellus/actions/workflows/ci.yml
+[docs-badge]: https://img.shields.io/docsrs/tellus/latest
+[docs-url]: https://docs.rs/tellus/latest/tellus/
 [benchmarks-badge]: https://img.shields.io/badge/benchmarks-dashboard-informational
-[benchmarks-url]: https://hseeberger.github.io/ferrier/dev/bench/
+[benchmarks-url]: https://hseeberger.github.io/tellus/dev/bench/
 [comparison-badge]: https://img.shields.io/badge/comparison-dashboard-informational
-[comparison-url]: https://hseeberger.github.io/ferrier/comparison/
+[comparison-url]: https://hseeberger.github.io/tellus/comparison/
 
 An actor framework for Rust, built on [Tokio](https://tokio.rs): typed messages, supervision
 trees and death watch with an ordering guarantee. Inspired by Carl Hewitt's
 [Actor Model](https://en.wikipedia.org/wiki/Actor_model) and strongly influenced by
 [Akka](https://akka.io).
 
+tellus is available on [crates.io](https://crates.io/crates/tellus):
+
+```toml
+[dependencies]
+tellus = { version = "0.1" }
+```
+
 ## Packages
 
-- [`ferrier`](ferrier): the actor framework itself. See [its README](ferrier/README.md) for highlights,
+- [`tellus`](tellus): the actor framework itself. See [its README](tellus/README.md) for highlights,
   getting started and the core concepts.
-- [`ferrier-comparison`](ferrier-comparison): messaging benchmarks comparing ferrier against
+- [`tellus-comparison`](tellus-comparison): messaging benchmarks comparing tellus against
   [kameo](https://crates.io/crates/kameo) and [ractor](https://crates.io/crates/ractor). See
-  [its README](ferrier-comparison/README.md) for the methodology, fairness rules and caveats and the
+  [its README](tellus-comparison/README.md) for the methodology, fairness rules and caveats and the
   [comparison dashboard][comparison-url] for published results.
 
 ## Roadmap
 
-ferrier is under active development and its API is still settling.
+tellus is under active development and its API is still settling.
 
-Two extensions are in the works, both feature gated, so ferrier stays purely local and free of their
+Two extensions are in the works, both feature gated, so tellus stays purely local and free of their
 dependencies by default:
 
 - persistence: event sourced actors, where commands are handled against the current state, the
@@ -43,7 +58,7 @@ dependencies by default:
 
 ## Documentation
 
-How ferrier works under the hood, top-down with links into the implementation:
+How tellus works under the hood, top-down with links into the implementation:
 
 - [docs/actors.md](docs/actors.md): the core, from the `Actor` trait down to the run loop.
 

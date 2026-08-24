@@ -1,6 +1,6 @@
 [package]
-name          = "ferrier-comparison"
-description   = "Benchmarks comparing ferrier against other actor frameworks"
+name          = "tellus-comparison"
+description   = "Benchmarks comparing tellus against other actor frameworks"
 version       = { workspace = true }
 edition       = { workspace = true }
 license       = { workspace = true }
@@ -20,7 +20,7 @@ criterion = { workspace = true, features = [ "async_tokio" ] }
 kameo     = { workspace = true }
 ractor    = { workspace = true, features = [ "tokio_runtime" ] }
 tokio     = { workspace = true, features = [ "macros", "rt-multi-thread" ] }
-ferrier   = { workspace = true }
+tellus    = { workspace = true }
 
 [[bench]]
 name    = "frameworks"

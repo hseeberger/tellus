@@ -3,8 +3,8 @@
 //! FIFO, so the reply reflects every increment told before the ask.
 
 use anyhow::Context;
-use ferrier::{Actor, ActorContext, ActorSystem, Control, Incoming, ReplyTo};
 use std::{convert::Infallible, time::Duration};
+use tellus::{Actor, ActorContext, ActorSystem, Control, Incoming, ReplyTo};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

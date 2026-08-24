@@ -1,13 +1,13 @@
 [package]
-name          = "ferrier"
-description   = "An actor framework for Rust"
+name          = "tellus"
+description   = "A resilient world of actors for Rust: typed messages, supervision trees, death watch."
 version       = { workspace = true }
 edition       = { workspace = true }
 license       = { workspace = true }
 readme        = "README.md"
 homepage      = { workspace = true }
 repository    = { workspace = true }
-documentation = "https://docs.rs/ferrier/latest/ferrier/"
+documentation = "https://docs.rs/tellus/latest/tellus/"
 publish       = true
 
 [package.metadata.docs.rs]
