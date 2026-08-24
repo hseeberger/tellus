@@ -3,19 +3,19 @@
 //! A worker thus never has more than one job in flight, which makes a bounded mailbox of capacity
 //! one provably sufficient: backpressure by design, without dropping work.
 //!
-//! The word counts are printed to stdout and ferrier logs to stderr; the log level is configured
-//! via `RUST_LOG`, e.g. `RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example
+//! The word counts are printed to stdout and tellus logs to stderr; the log level is configured
+//! via `RUST_LOG`, e.g. `RUST_LOG=tellus=debug cargo run --quiet -p tellus --example
 //! work_pulling`.
 
 use anyhow::Context;
-use ferrier::{
-    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Control, Incoming, MailboxCapacity,
-    ReplyTo,
-};
 use std::{
     convert::{Infallible, identity},
     io,
     num::NonZeroUsize,
+};
+use tellus::{
+    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Control, Incoming, MailboxCapacity,
+    ReplyTo,
 };
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 

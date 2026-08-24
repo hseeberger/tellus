@@ -8,7 +8,7 @@ on:
     branches:
       - main
     paths:
-      - ferrier-comparison/**
+      - tellus-comparison/**
       - .github/workflows/comparison.yml
   workflow_dispatch:
 
@@ -125,8 +125,8 @@ jobs:
 
           {
             printf '<!doctype html>\n<html lang="en">\n<head>\n'
-            printf '<meta charset="utf-8">\n<title>ferrier comparison benchmarks</title>\n'
-            printf '</head>\n<body>\n<h1>ferrier comparison benchmarks</h1>\n<ul>\n'
+            printf '<meta charset="utf-8">\n<title>tellus comparison benchmarks</title>\n'
+            printf '</head>\n<body>\n<h1>tellus comparison benchmarks</h1>\n<ul>\n'
             find ../gh-pages/comparison -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
               | sort -Vr \
               | while read -r dir; do

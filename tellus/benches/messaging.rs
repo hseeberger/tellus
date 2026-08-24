@@ -7,14 +7,14 @@
 //!   four workers per core.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use ferrier::{
-    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Control, Incoming, MailboxCapacity,
-};
 use std::{
     convert::Infallible,
     num::NonZeroUsize,
     thread,
     time::{Duration, Instant},
+};
+use tellus::{
+    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Control, Incoming, MailboxCapacity,
 };
 use tokio::runtime::Runtime;
 

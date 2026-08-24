@@ -1,14 +1,14 @@
 [workspace]
 resolver = "3"
-members  = [ "ferrier", "ferrier-comparison" ]
+members  = [ "tellus", "tellus-comparison" ]
 
 [workspace.package]
 version       = "0.1.0"
 edition       = "2024"
 license       = "Apache-2.0"
-homepage      = "https://github.com/hseeberger/ferrier"
-repository    = "https://github.com/hseeberger/ferrier"
-documentation = "https://github.com/hseeberger/ferrier"
+homepage      = "https://github.com/hseeberger/tellus"
+repository    = "https://github.com/hseeberger/tellus"
+documentation = "https://github.com/hseeberger/tellus"
 publish       = false
 
 [workspace.dependencies]
@@ -26,4 +26,4 @@ tokio              = { version = "1" }
 tracing            = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 uuid               = { version = "1.24" }
-ferrier            = { path = "ferrier" }
+tellus             = { path = "tellus" }

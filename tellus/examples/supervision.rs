@@ -4,16 +4,16 @@
 //! rebuilt from zero. More than `max_restarts` failures in a streak would stop the loader instead,
 //! escalating to the watching root.
 //!
-//! The output is printed to stdout and ferrier logs the failures and restarts to stderr; the log
+//! The output is printed to stdout and tellus logs the failures and restarts to stderr; the log
 //! level is configured via `RUST_LOG`, e.g.
-//! `RUST_LOG=ferrier=debug cargo run --quiet -p ferrier --example supervision`.
+//! `RUST_LOG=tellus=debug cargo run --quiet -p tellus --example supervision`.
 
 use anyhow::Context;
-use ferrier::{
+use std::{convert::Infallible, io, num::NonZeroU32, time::Duration};
+use tellus::{
     Actor, ActorConfig, ActorContext, ActorSystem, Backoff, Control, Incoming, Nothing,
     RestartPolicy, SupervisionStrategy,
 };
-use std::{convert::Infallible, io, num::NonZeroU32, time::Duration};
 use thiserror::Error;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 

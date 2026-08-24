@@ -1,12 +1,12 @@
-use ferrier::{
-    Actor, ActorConfig, ActorContext, ActorId, ActorRef, ActorSystem, Control, Incoming,
-    MailboxCapacity, Nothing,
-};
 use std::{
     convert::Infallible,
     hint,
     num::NonZeroUsize,
     time::{Duration, Instant},
+};
+use tellus::{
+    Actor, ActorConfig, ActorContext, ActorId, ActorRef, ActorSystem, Control, Incoming,
+    MailboxCapacity, Nothing,
 };
 use tokio::{sync::mpsc, task::block_in_place, time::timeout};
 

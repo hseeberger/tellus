@@ -6,11 +6,11 @@ nightly := `rustc --version | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sed 's/^/n
 bench_regression_threshold := "0.15"
 
 check:
-    cargo check -p ferrier --all-targets
-    cargo check -p ferrier --all-targets --features serde
+    cargo check -p tellus --all-targets
+    cargo check -p tellus --all-targets --features serde
 
 fix:
-    cargo fix -p ferrier --all-targets --allow-dirty --allow-staged
+    cargo fix -p tellus --all-targets --allow-dirty --allow-staged
 
 fmt:
     cargo +{{ nightly }} fmt
@@ -20,32 +20,32 @@ fmt-check:
     cargo +{{ nightly }} fmt --check
 
 lint:
-    cargo clippy -p ferrier --all-targets --no-deps                  -- -D warnings
-    cargo clippy -p ferrier --all-targets --no-deps --features serde -- -D warnings
+    cargo clippy -p tellus --all-targets --no-deps                  -- -D warnings
+    cargo clippy -p tellus --all-targets --no-deps --features serde -- -D warnings
 
 lint-fix:
-    cargo clippy -p ferrier --all-targets --no-deps --allow-dirty --allow-staged --fix
+    cargo clippy -p tellus --all-targets --no-deps --allow-dirty --allow-staged --fix
 
 test:
-    cargo test -p ferrier
-    cargo test -p ferrier --features serde
+    cargo test -p tellus
+    cargo test -p tellus --features serde
 
 doc:
-    RUSTDOCFLAGS="-D warnings" cargo +{{ nightly }} doc -p ferrier --no-deps --all-features
+    RUSTDOCFLAGS="-D warnings" cargo +{{ nightly }} doc -p tellus --no-deps --all-features
 
 all: check fmt lint test doc
 
 bench:
-    cargo bench -p ferrier
+    cargo bench -p tellus
 
 bench-save baseline:
-    cargo bench -p ferrier --bench messaging -- --save-baseline {{ baseline }}
+    cargo bench -p tellus --bench messaging -- --save-baseline {{ baseline }}
 
 bench-compare baseline:
-    cargo bench -p ferrier --bench messaging -- --baseline-lenient {{ baseline }}
+    cargo bench -p tellus --bench messaging -- --baseline-lenient {{ baseline }}
 
 bench-bencher:
-    cargo bench -p ferrier --bench messaging -- --output-format bencher
+    cargo bench -p tellus --bench messaging -- --output-format bencher
 
 bench-report:
     #!/usr/bin/env bash
@@ -72,31 +72,31 @@ bench-report:
     fi
 
 comparison:
-    cargo bench -p ferrier-comparison --bench frameworks
+    cargo bench -p tellus-comparison --bench frameworks
 
 comparison-report tag="local":
-    cargo run -p ferrier-comparison --bin report -- --tag {{ tag }}
+    cargo run -p tellus-comparison --bin report -- --tag {{ tag }}
 
 comparison-check:
-    cargo check -p ferrier-comparison --all-targets
+    cargo check -p tellus-comparison --all-targets
 
 comparison-lint:
-    cargo clippy -p ferrier-comparison --all-targets --no-deps -- -D warnings
+    cargo clippy -p tellus-comparison --all-targets --no-deps -- -D warnings
 
 run-examples-hello:
-    cargo run -p ferrier --example hello
+    cargo run -p tellus --example hello
 
 run-examples-counter:
-    cargo run -p ferrier --example counter
+    cargo run -p tellus --example counter
 
 run-examples-scatter-gather:
-    RUST_LOG=ferrier=debug cargo run -p ferrier --example scatter_gather
+    RUST_LOG=tellus=debug cargo run -p tellus --example scatter_gather
 
 run-examples-supervision:
-    RUST_LOG=ferrier=debug cargo run -p ferrier --example supervision
+    RUST_LOG=tellus=debug cargo run -p tellus --example supervision
 
 run-examples-work-pulling:
-    RUST_LOG=ferrier=debug cargo run -p ferrier --example work_pulling
+    RUST_LOG=tellus=debug cargo run -p tellus --example work_pulling
 
 run-examples-device-manager:
-    RUST_LOG=ferrier=debug cargo run -p ferrier --example device_manager
+    RUST_LOG=tellus=debug cargo run -p tellus --example device_manager

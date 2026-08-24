@@ -1,7 +1,3 @@
-use ferrier::{
-    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Backoff, Control, Incoming, Nothing,
-    RestartPolicy, SupervisionStrategy,
-};
 use std::{
     num::NonZeroU32,
     sync::{
@@ -9,6 +5,10 @@ use std::{
         atomic::{AtomicUsize, Ordering::SeqCst},
     },
     time::Duration,
+};
+use tellus::{
+    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Backoff, Control, Incoming, Nothing,
+    RestartPolicy, SupervisionStrategy,
 };
 use thiserror::Error;
 use tokio::{

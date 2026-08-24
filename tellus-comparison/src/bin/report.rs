@@ -9,7 +9,7 @@ use std::{
     thread,
 };
 
-const PACKAGES: [&str; 3] = ["kameo", "ractor", "ferrier"];
+const PACKAGES: [&str; 3] = ["kameo", "ractor", "tellus"];
 
 fn main() -> anyhow::Result<()> {
     let args = Args::from_env()?;
@@ -323,7 +323,7 @@ fn render_html(report: &Report) -> String {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ferrier comparison benchmarks ({tag})</title>
+<title>tellus comparison benchmarks ({tag})</title>
 <style>
 :root {{ color-scheme: light dark; --fg: #111; --muted: #555; --bg: #fff; --line: #ddd; --bar: #4f7cff; --warn-bg: #fff8e1; --warn-line: #e6c200; }}
 @media (prefers-color-scheme: dark) {{
@@ -356,8 +356,8 @@ footer {{ margin-top: 3rem; color: var(--muted); font-size: .85rem; }}
 </style>
 </head>
 <body>
-<h1>ferrier comparison benchmarks</h1>
-<p class="sub">Messaging throughput of <strong>ferrier</strong> against kameo and ractor, higher is better.</p>
+<h1>tellus comparison benchmarks</h1>
+<p class="sub">Messaging throughput of <strong>tellus</strong> against kameo and ractor, higher is better.</p>
 
 <dl class="meta">
 <dt>Tag</dt><dd>{tag}</dd>
@@ -372,27 +372,27 @@ footer {{ margin-top: 3rem; color: var(--muted); font-size: .85rem; }}
 <div class="caveats">
 <h2>Read this before drawing conclusions</h2>
 <ol>
-<li><strong>ferrier's <code>receive</code> is synchronous; kameo's and ractor's handlers are <code>async fn</code>.</strong>
-ferrier therefore avoids allocating and polling a future per message, but cannot await inside <code>receive</code>.
-This is a capability difference, not only a speed difference, and it favours ferrier on exactly these microbenchmarks.</li>
-<li><strong>ferrier's mailbox is statically typed; the others erase message types</strong>, costing an allocation
-and a dynamic dispatch per message that ferrier does not pay.</li>
+<li><strong>tellus's <code>receive</code> is synchronous; kameo's and ractor's handlers are <code>async fn</code>.</strong>
+tellus therefore avoids allocating and polling a future per message, but cannot await inside <code>receive</code>.
+This is a capability difference, not only a speed difference, and it favours tellus on exactly these microbenchmarks.</li>
+<li><strong>tellus's mailbox is statically typed; the others erase message types</strong>, costing an allocation
+and a dynamic dispatch per message that tellus does not pay.</li>
 <li><strong>Competitors are configured for speed, not defaults.</strong> kameo runs without <code>tracing</code>
 and ractor without <code>message_span_propogation</code>, both of which add per-message instrumentation that
-ferrier has no equivalent of. This biases the setup in the competitors' favour.</li>
+tellus has no equivalent of. This biases the setup in the competitors' favour.</li>
 <li><strong>Messaging microbenchmarks only.</strong> Nothing here speaks to supervision, distribution,
-ergonomics, memory use or production readiness. kameo and ractor are mature, feature-rich frameworks; ferrier is
+ergonomics, memory use or production readiness. kameo and ractor are mature, feature-rich frameworks; tellus is
 under active development and does far less.</li>
 <li><strong>On CI these run on a shared 2-core runner</strong>, so absolute figures are not representative of real
 deployments. Only the relative comparison within a single run is meaningful.</li>
-<li><strong>Written and run by ferrier's maintainer.</strong> The full methodology and benchmark source are in the
+<li><strong>Written and run by tellus's maintainer.</strong> The full methodology and benchmark source are in the
 repository; corrections are welcome.</li>
 </ol>
 </div>
 {sections}
 <footer>
 Generated from criterion results. See the
-<a href="../../dev/bench/">ferrier regression benchmarks</a> for throughput over time.
+<a href="../../dev/bench/">tellus regression benchmarks</a> for throughput over time.
 </footer>
 </body>
 </html>

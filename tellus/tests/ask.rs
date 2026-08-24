@@ -1,7 +1,3 @@
-use ferrier::{
-    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, AskError, Backoff, Control, Incoming,
-    MailboxCapacity, ReplyTo, RestartPolicy, SupervisionStrategy,
-};
 use std::{
     convert::Infallible,
     future::Future,
@@ -9,6 +5,10 @@ use std::{
     pin::pin,
     task::{Context, Waker},
     time::Duration,
+};
+use tellus::{
+    Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, AskError, Backoff, Control, Incoming,
+    MailboxCapacity, ReplyTo, RestartPolicy, SupervisionStrategy,
 };
 use tokio::{
     sync::mpsc,
