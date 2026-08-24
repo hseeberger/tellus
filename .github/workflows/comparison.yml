@@ -3,7 +3,7 @@ name: Comparison
 on:
   push:
     tags:
-      - v*
+      - tellus-v*
   pull_request:
     branches:
       - main
