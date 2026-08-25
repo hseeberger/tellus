@@ -35,6 +35,7 @@ impl<M> ActorRef<M> {
     /// has terminated, or if its mailbox is full for [crate::MailboxCapacity::Bounded], the message
     /// is dropped and logged as a dead letter. Also, even if the message is delivered to the
     /// actor, it might stop before processing it.
+    #[cfg_attr(feature = "hotpath", hotpath::measure)]
     pub fn tell(&self, message: M) {
         if let Err(error) = self.mailbox_handle.try_send_message(message) {
             self.dead_letter(&error);
@@ -58,6 +59,7 @@ impl<M> ActorRef<M> {
     ///
     /// [ActorContext::reply_to]: crate::ActorContext::reply_to
     /// [ActorSystem::terminated]: crate::ActorSystem::terminated
+    #[cfg_attr(feature = "hotpath", hotpath::measure)]
     pub async fn ask<R, F>(&self, within: Duration, make_message: F) -> Result<R, AskError>
     where
         F: FnOnce(ReplyTo<R>) -> M,

@@ -54,6 +54,7 @@ pub(crate) struct Mailbox<M> {
 }
 
 impl<M> Mailbox<M> {
+    #[cfg_attr(feature = "hotpath", hotpath::measure)]
     pub(crate) async fn recv(&self) -> Option<Incoming<M>> {
         let incoming = self.incoming_rx.recv_async().await.ok()?;
         if matches!(incoming, Incoming::Message(_)) {

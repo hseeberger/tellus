@@ -7,14 +7,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Tasks are defined in the [justfile](justfile):
 
 - `just all`: check, fmt, lint, test and doc; the full local gate for the `tellus` crate.
-- `just check` / `just lint` / `just test` / `just doc`: the individual steps, all scoped to `-p tellus` and each run twice, with the `serde` feature off and on.
+- `just check` / `just lint` / `just test` / `just doc`: the individual steps, all scoped to `-p tellus` and each run with the `serde` feature off and on; check and lint additionally run with the `hotpath` feature.
 - `just fmt`: formats Rust (nightly rustfmt, the justfile derives the matching nightly from the installed stable) and TOML (taplo). Plain `cargo fmt` is not enough; the rustfmt config uses unstable options.
 - Single test: `cargo test -p tellus --test watch <test_name>` (integration tests live in `tellus/tests/`: `supervision.rs`, `termination.rs`, `watch.rs`).
 - Examples: `just run-examples-hello`, `just run-examples-scatter-gather`.
 
 Benchmarks:
 
-- `just bench`: tellus's own criterion regression benchmarks (`tellus/benches/messaging.rs`); `just bench-save <baseline>` / `just bench-compare <baseline>` for local before/after comparisons. CI benchmarks every PR against its merge base and flags a regression at 95% confidence of at least 15% slowdown.
+- `just profile` / `just profile-alloc`: run `tellus/examples/profile.rs` with hotpath profiling, reporting per-function timings or allocation bytes for the instrumented hot path (send path, mailbox, run loop, termination). Instrumentation is gated behind the off-by-default `hotpath` feature; read the report as relative attribution, criterion stays the source of truth for absolute regressions.
+- `just profile-alloc-gate`: run the profiling workload with allocation tracking and fail unless `tell`, `reserve` and `receive_incoming` allocate exactly 0 bytes; `profile-alloc-check <file>` applies that check to an existing JSON report. CI (`profile.yml`) profiles every PR against its merge base, posts the per-function comparison as an informational PR comment, and fails the build only on the zero-alloc check.
+- `just bench`: tellus's own criterion regression benchmarks (`tellus/benches/messaging.rs`); `just bench-save <baseline>` / `just bench-compare <baseline>` for local before/after comparisons. CI benchmarks every PR against its merge base and fails the build on a regression at 95% confidence of at least 15% slowdown (`just bench-gate`).
 - `just comparison` plus `comparison-check` / `comparison-lint`: the `tellus-comparison` crate benchmarking tellus against kameo and ractor. It is deliberately excluded from `just all` and from per-PR CI so its dependencies stay out of tellus's build; touching it means running its own check and lint recipes.
 
 CI enforces that a PR consists of exactly one commit; squash before pushing.

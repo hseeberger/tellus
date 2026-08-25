@@ -20,6 +20,7 @@ impl<T> CountedSender<T> {
         Self { item_tx, quota }
     }
 
+    #[cfg_attr(feature = "hotpath", hotpath::measure)]
     pub(crate) fn try_send_counted(&self, item: T) -> Result<(), CountedSendError> {
         match self.quota.reserve() {
             Ok(reservation) => {
@@ -83,6 +84,7 @@ impl Quota {
         })
     }
 
+    #[cfg_attr(feature = "hotpath", hotpath::measure)]
     pub(crate) fn reserve(&self) -> Result<Reservation<'_>, Full> {
         let Repr::Bounded { capacity, count } = &self.0 else {
             return Ok(Reservation(Some(self)));

@@ -2,12 +2,14 @@ set shell := ["bash", "-uc"]
 
 nightly := `rustc --version | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sed 's/^/nightly-/'`
 
-# Flag a benchmark as regressed once we are 95% confident it is at least this fraction slower.
+# A benchmark counts as regressed once we are 95% confident it is at least this fraction slower;
+# bench-report flags it and bench-gate fails on it.
 bench_regression_threshold := "0.15"
 
 check:
     cargo check -p tellus --all-targets
     cargo check -p tellus --all-targets --features serde
+    cargo check -p tellus --all-targets --features hotpath
 
 fix:
     cargo fix -p tellus --all-targets --allow-dirty --allow-staged
@@ -20,8 +22,9 @@ fmt-check:
     cargo +{{ nightly }} fmt --check
 
 lint:
-    cargo clippy -p tellus --all-targets --no-deps                  -- -D warnings
-    cargo clippy -p tellus --all-targets --no-deps --features serde -- -D warnings
+    cargo clippy -p tellus --all-targets --no-deps                    -- -D warnings
+    cargo clippy -p tellus --all-targets --no-deps --features serde   -- -D warnings
+    cargo clippy -p tellus --all-targets --no-deps --features hotpath -- -D warnings
 
 lint-fix:
     cargo clippy -p tellus --all-targets --no-deps --allow-dirty --allow-staged --fix
@@ -70,6 +73,54 @@ bench-report:
     if [[ $regressed -ne 0 ]]; then
         printf '_Regression: 95%% confident a benchmark is at least %s%% slower._\n' "$threshold_pct"
     fi
+
+bench-gate:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    regressed=0
+    while IFS= read -r change; do
+        id=${change#target/criterion/}
+        id=${id%/change/estimates.json}
+        lower=$(jq -r '.mean.confidence_interval.lower_bound' "$change")
+        if awk -v l="$lower" -v t="{{ bench_regression_threshold }}" 'BEGIN { exit !(l > t) }'; then
+            awk -v id="$id" -v l="$lower" 'BEGIN { printf "FAIL: %s regressed, at least %+.1f%% slower\n", id, l * 100 }'
+            regressed=1
+        fi
+    done < <(find target/criterion -path '*/change/estimates.json' | sort)
+    if [[ $regressed -eq 0 ]]; then
+        echo "ok: no benchmark regressed beyond the threshold"
+    fi
+    exit $regressed
+
+profile:
+    cargo run --release -p tellus --example profile --features hotpath
+
+profile-alloc:
+    cargo run --release -p tellus --example profile --features hotpath-alloc
+
+profile-alloc-gate out="target/hotpath/profile.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "$(dirname "{{ out }}")"
+    HOTPATH_OUTPUT_FORMAT=json HOTPATH_OUTPUT_PATH="{{ out }}" just profile-alloc
+    just profile-alloc-check "{{ out }}"
+
+# The steady-state messaging path must not allocate per message; "0 B" is exact, not rounded.
+profile-alloc-check file:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    failed=0
+    for name in tellus::actor_ref::tell tellus::quota::reserve tellus::actor_context::receive_incoming; do
+        if jq -e --arg name "$name" \
+            '[.functions_alloc.data[] | select(.name == $name)] | length == 1 and .[0].total == "0 B"' \
+            "{{ file }}" > /dev/null; then
+            echo "ok: $name allocated 0 B"
+        else
+            echo "FAIL: $name allocated memory or is missing from {{ file }}"
+            failed=1
+        fi
+    done
+    exit $failed
 
 comparison:
     cargo bench -p tellus-comparison --bench frameworks

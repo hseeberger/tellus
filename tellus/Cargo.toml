@@ -14,11 +14,14 @@ publish       = true
 all-features = true
 
 [features]
-serde = [ "dep:humantime-serde", "dep:serde" ]
+hotpath       = [ "dep:hotpath", "hotpath/hotpath" ]
+hotpath-alloc = [ "hotpath", "hotpath/hotpath-alloc" ]
+serde         = [ "dep:humantime-serde", "dep:serde" ]
 
 [dependencies]
 derive_more     = { workspace = true, features = [ "debug", "display", "into" ] }
 flume           = { workspace = true, features = [ "async" ] }
+hotpath         = { workspace = true, optional = true }
 humantime-serde = { workspace = true, optional = true }
 serde           = { workspace = true, features = [ "derive" ], optional = true }
 thiserror       = { workspace = true }
@@ -32,6 +35,10 @@ criterion          = { workspace = true, features = [ "async_tokio" ] }
 serde_json         = { workspace = true }
 tracing-subscriber = { workspace = true, features = [ "env-filter", "fmt", "json" ] }
 tokio              = { workspace = true, features = [ "macros", "rt-multi-thread", "test-util", "time" ] }
+
+[[example]]
+name              = "profile"
+required-features = [ "hotpath" ]
 
 [[bench]]
 name    = "messaging"
