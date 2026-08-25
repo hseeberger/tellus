@@ -213,9 +213,7 @@ where
                             continue;
                         }
 
-                        match catch_and_log(actor_id, "actor failed", || {
-                            actor.receive(&context, incoming, state)
-                        }) {
+                        match receive_incoming(actor_id, &actor, &context, incoming, state) {
                             Some(Control::Continue(next_state)) => state = next_state,
 
                             Some(Control::Stop) => {
@@ -298,6 +296,22 @@ enum Restart {
     NotConfigured,
 }
 
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
+fn receive_incoming<A>(
+    actor_id: ActorId,
+    actor: &A,
+    context: &ActorContext<A::Message>,
+    incoming: Incoming<A::Message>,
+    state: A::State,
+) -> Option<Control<A::State>>
+where
+    A: Actor,
+{
+    catch_and_log(actor_id, "actor failed", || {
+        actor.receive(context, incoming, state)
+    })
+}
+
 /// The failure is consumed here, before the run loop's awaits, so `A::Error` need not be [Send].
 fn catch_and_log<T, E, F>(actor_id: ActorId, failure: &str, f: F) -> Option<T>
 where
@@ -353,6 +367,7 @@ fn next_restart(
 /// children still stop, and no user code runs in the window where a racing send can still slip
 /// past the drain (flume retains such a message until its last sender drops); the watchers are
 /// signaled last, since a terminated signal must prove that the actor's destructors have run.
+#[cfg_attr(feature = "hotpath", hotpath::measure)]
 async fn terminate<A>(actor: A, mut context: ActorContext<A::Message>, mailbox: Mailbox<A::Message>)
 where
     A: Actor,

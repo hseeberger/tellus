@@ -80,6 +80,10 @@ jobs:
           header: bench
           path: report.md
 
+      - name: Enforce benchmark regression threshold
+        run: |
+          just bench-gate
+
   bench-main:
     name: Track on main
     runs-on: ubuntu-latest
