@@ -56,9 +56,12 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
+      # The restored cache can hold a stale target/criterion, which criterion trips over and
+      # bench-report/bench-gate glob for change data; benchmark runs must start from a clean slate.
       - name: Benchmark merge base
         run: |
           rustup override set ${{ needs.toolchain.outputs.stable }}
+          rm -rf target/criterion
           base=$(git merge-base origin/main HEAD)
           git checkout --detach "$base"
           git checkout "$GITHUB_SHA" -- justfile
@@ -111,9 +114,12 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
+      # See the comment on "Benchmark merge base": a stale cached target/criterion corrupts the
+      # bencher output which "Store result" parses.
       - name: Benchmark
         run: |
           rustup override set ${{ needs.toolchain.outputs.stable }}
+          rm -rf target/criterion
           just bench-bencher | tee bench-output.txt
 
       - name: Store result
