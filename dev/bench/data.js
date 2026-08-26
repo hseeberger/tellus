@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787735652790,
+  "lastUpdate": 1787736712370,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -119,6 +119,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3428354,
             "range": "± 37869",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "122046c900e5309a4567d0a13b3532cb9a4ab17a",
+          "message": "Merge pull request #49 from hseeberger/build/publish-persistence-postgres\n\nbuild: publish tellus-persistence-postgres to crates.io",
+          "timestamp": "2026-08-26T11:29:52+02:00",
+          "tree_id": "29a63385a27e372b211c583741b956b1e1ccbec7",
+          "url": "https://github.com/hseeberger/tellus/commit/122046c900e5309a4567d0a13b3532cb9a4ab17a"
+        },
+        "date": 1787736711858,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 11858411,
+            "range": "± 151430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 11826622,
+            "range": "± 142760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 686555,
+            "range": "± 10319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 771690,
+            "range": "± 4933",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 5601296,
+            "range": "± 110149",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 3555818,
+            "range": "± 9906",
             "unit": "ns/iter"
           }
         ]
