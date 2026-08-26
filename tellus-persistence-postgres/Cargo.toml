@@ -4,10 +4,11 @@ description   = "PostgreSQL event and snapshot stores for tellus persistence"
 version       = { workspace = true }
 edition       = { workspace = true }
 license       = { workspace = true }
+readme        = "README.md"
 homepage      = { workspace = true }
 repository    = { workspace = true }
-documentation = { workspace = true }
-publish       = { workspace = true }
+documentation = "https://docs.rs/tellus-persistence-postgres/latest/tellus_persistence_postgres/"
+publish       = true
 
 [dependencies]
 sqlx      = { workspace = true, features = [ "runtime-tokio", "tls-rustls-ring", "postgres", "migrate", "macros" ] }
