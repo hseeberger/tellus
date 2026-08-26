@@ -9,7 +9,7 @@ use std::{
     thread,
 };
 
-const PACKAGES: [&str; 3] = ["kameo", "ractor", "tellus"];
+const PACKAGES: [&str; 4] = ["kameo", "ractor", "tellus", "weaver"];
 
 fn main() -> anyhow::Result<()> {
     let args = Args::from_env()?;
@@ -271,14 +271,25 @@ fn read_versions() -> anyhow::Result<BTreeMap<String, String>> {
 
     let mut versions = BTreeMap::new();
     let mut name = None;
+    let mut versioned = None;
     for line in lock.lines() {
         if let Some(value) = line.strip_prefix("name = ") {
             name = Some(value.trim_matches('"').to_string());
+            versioned = None;
         } else if let Some(value) = line.strip_prefix("version = ")
             && let Some(name) = name.take()
             && PACKAGES.contains(&name.as_str())
         {
-            versions.insert(name, value.trim_matches('"').to_string());
+            versions.insert(name.clone(), value.trim_matches('"').to_string());
+            versioned = Some(name);
+        } else if let Some(value) = line.strip_prefix("source = ")
+            && let Some(name) = versioned.take()
+            && let Some((_, revision)) = value.trim_matches('"').split_once('#')
+        {
+            let revision = &revision[..revision.len().min(8)];
+            versions
+                .entry(name)
+                .and_modify(|version| version.push_str(&format!(" ({revision})")));
         }
     }
 
@@ -357,7 +368,7 @@ footer {{ margin-top: 3rem; color: var(--muted); font-size: .85rem; }}
 </head>
 <body>
 <h1>tellus comparison benchmarks</h1>
-<p class="sub">Messaging throughput of <strong>tellus</strong> against kameo and ractor, higher is better.</p>
+<p class="sub">Messaging throughput of <strong>tellus</strong> against kameo, ractor and weaver, higher is better.</p>
 
 <dl class="meta">
 <dt>Tag</dt><dd>{tag}</dd>
@@ -372,17 +383,24 @@ footer {{ margin-top: 3rem; color: var(--muted); font-size: .85rem; }}
 <div class="caveats">
 <h2>Read this before drawing conclusions</h2>
 <ol>
-<li><strong>tellus's <code>receive</code> is synchronous; kameo's and ractor's handlers are <code>async fn</code>.</strong>
+<li><strong>tellus's <code>receive</code> is synchronous; the other three take <code>async fn</code> handlers.</strong>
 tellus therefore avoids allocating and polling a future per message, but cannot await inside <code>receive</code>.
 This is a capability difference, not only a speed difference, and it favours tellus on exactly these microbenchmarks.</li>
 <li><strong>tellus's mailbox is statically typed; the others erase message types</strong>, costing an allocation
 and a dynamic dispatch per message that tellus does not pay.</li>
 <li><strong>Competitors are configured for speed, not defaults.</strong> kameo runs without <code>tracing</code>
 and ractor without <code>message_span_propogation</code>, both of which add per-message instrumentation that
-tellus has no equivalent of. This biases the setup in the competitors' favour.</li>
+tellus has no equivalent of. This biases the setup in the competitors' favour. weaver has no such switch and is
+measured on its direct mailbox path, which skips the supervisor hop its documentation calls the default.</li>
+<li><strong>weaver serializes every message, even for a local send.</strong> Each send bincode-encodes the payload
+and wraps it in an <code>Envelope</code> with an owned type name, subject and <code>Notify</code>; the other three
+move a Rust value into the mailbox. That is a deliberate design choice, the same envelope travels to a broker in
+distributed mode, but it dominates weaver's numbers here.</li>
+<li><strong>weaver is unreleased</strong>, measured at a pinned git revision of a private repository rather than at
+a published version, and it is by a wide margin the youngest of the four.</li>
 <li><strong>Messaging microbenchmarks only.</strong> Nothing here speaks to supervision, distribution,
-ergonomics, memory use or production readiness. kameo and ractor are mature, feature-rich frameworks; tellus is
-under active development and does far less.</li>
+ergonomics, memory use or production readiness. kameo and ractor are mature, feature-rich frameworks; tellus and
+weaver are under active development and do far less.</li>
 <li><strong>On CI these run on a shared 2-core runner</strong>, so absolute figures are not representative of real
 deployments. Only the relative comparison within a single run is meaningful.</li>
 <li><strong>Written and run by tellus's maintainer.</strong> The full methodology and benchmark source are in the

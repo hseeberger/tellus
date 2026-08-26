@@ -49,13 +49,14 @@ type PlainBench = (&'static str, fn(u64) -> BoxedBench);
 /// A named benchmark taking the iteration count and the group's parameter, one per framework.
 type ParameterizedBench = (&'static str, fn(u64, usize) -> BoxedBench);
 
-const FLOOD_BENCHES: [PlainBench; 3] = [
+const FLOOD_BENCHES: [PlainBench; 4] = [
     ("tellus", |iters| Box::pin(tellus_bench::flood(iters))),
     ("kameo", |iters| Box::pin(kameo_bench::flood(iters))),
     ("ractor", |iters| Box::pin(ractor_bench::flood(iters))),
+    ("weaver", |iters| Box::pin(weaver_bench::flood(iters))),
 ];
 
-const PING_PONG_BENCHES: [ParameterizedBench; 3] = [
+const PING_PONG_BENCHES: [ParameterizedBench; 4] = [
     ("tellus", |iters, pairs| {
         Box::pin(tellus_bench::ping_pong(iters, pairs))
     }),
@@ -65,9 +66,12 @@ const PING_PONG_BENCHES: [ParameterizedBench; 3] = [
     ("ractor", |iters, pairs| {
         Box::pin(ractor_bench::ping_pong(iters, pairs))
     }),
+    ("weaver", |iters, pairs| {
+        Box::pin(weaver_bench::ping_pong(iters, pairs))
+    }),
 ];
 
-const FAN_OUT_BENCHES: [ParameterizedBench; 3] = [
+const FAN_OUT_BENCHES: [ParameterizedBench; 4] = [
     ("tellus", |iters, workers| {
         Box::pin(tellus_bench::fan_out(iters, workers))
     }),
@@ -76,6 +80,9 @@ const FAN_OUT_BENCHES: [ParameterizedBench; 3] = [
     }),
     ("ractor", |iters, workers| {
         Box::pin(ractor_bench::fan_out(iters, workers))
+    }),
+    ("weaver", |iters, workers| {
+        Box::pin(weaver_bench::fan_out(iters, workers))
     }),
 ];
 
@@ -777,6 +784,354 @@ mod ractor_bench {
             self.pinger
                 .send_message(PingerMessage::Pong)
                 .expect("ractor pong is sent");
+
+            Ok(())
+        }
+    }
+}
+
+mod weaver_bench {
+    use crate::{FLOOD_MESSAGES, PING_PONG_ROUNDS, count_down, fan_out_share, measure};
+    use async_trait::async_trait;
+    use std::{sync::Arc, time::Duration};
+    use tokio::{
+        sync::oneshot::{Receiver, Sender, channel},
+        task::yield_now,
+    };
+    use weaver::{
+        Actor, ActorHandle, Event,
+        actor::{
+            actor_behaviors::{Behavior, Subscription},
+            actor_host::IntoDynActor,
+            actor_lifecycle::ActorLifecycle,
+            actor_traits::{
+                ActorContext, ActorCore, ActorLifecycleError, ActorRuntime, ActorStopReason,
+            },
+            mailbox::ActorAddress,
+        },
+        as_actor, event_handler, mailbox_handling,
+        system::{
+            actor_supervision::{ISuperviseActors, SupervisionStrategy, Supervisor},
+            runtime_config::{RuntimeConfig, RuntimeConfigurationProvider},
+        },
+    };
+
+    pub async fn flood(iters: u64) -> Duration {
+        measure(
+            iters,
+            || async {
+                let (countdown, stopped) = new_countdown(FLOOD_MESSAGES).await;
+                let address = countdown.actor_address();
+
+                (
+                    start(vec![countdown.into_dyn_actor()]).await,
+                    address,
+                    stopped,
+                )
+            },
+            |(_supervisor, address, stopped)| async move {
+                for _ in 0..FLOOD_MESSAGES {
+                    address
+                        .send_event(Tick)
+                        .await
+                        .expect("weaver flood message is sent");
+                }
+                stopped.await.expect("weaver flood terminates");
+            },
+        )
+        .await
+    }
+
+    pub async fn ping_pong(iters: u64, pairs: usize) -> Duration {
+        measure(
+            iters,
+            || async {
+                let mut actors = Vec::with_capacity(2 * pairs);
+                let mut pingers = Vec::with_capacity(pairs);
+
+                for _ in 0..pairs {
+                    let (pinger, ponger, stopped) = new_pair().await;
+                    pingers.push((pinger.actor_address(), stopped));
+                    actors.push(pinger.into_dyn_actor());
+                    actors.push(ponger.into_dyn_actor());
+                }
+
+                (start(actors).await, pingers)
+            },
+            |(_supervisor, pingers)| async move {
+                for (pinger, _) in &pingers {
+                    pinger
+                        .send_event(Go)
+                        .await
+                        .expect("weaver ping_pong starts");
+                }
+                for (_, stopped) in pingers {
+                    stopped.await.expect("weaver ping_pong terminates");
+                }
+            },
+        )
+        .await
+    }
+
+    pub async fn fan_out(iters: u64, workers: usize) -> Duration {
+        let share = fan_out_share(workers);
+        measure(
+            iters,
+            || async {
+                let mut actors = Vec::with_capacity(workers);
+                let mut addresses = Vec::with_capacity(workers);
+                let mut stopped = Vec::with_capacity(workers);
+
+                for _ in 0..workers {
+                    let (countdown, countdown_stopped) = new_countdown(share).await;
+                    addresses.push(countdown.actor_address());
+                    stopped.push(countdown_stopped);
+                    actors.push(countdown.into_dyn_actor());
+                }
+
+                (start(actors).await, addresses, stopped)
+            },
+            |(_supervisor, addresses, stopped)| async move {
+                for address in addresses.iter().cycle().take(share * workers) {
+                    address
+                        .send_event(Tick)
+                        .await
+                        .expect("weaver fan_out message is sent");
+                }
+                for stopped in stopped {
+                    stopped.await.expect("weaver fan_out terminates");
+                }
+            },
+        )
+        .await
+    }
+
+    async fn new_countdown(messages: usize) -> (ActorHandle<Countdown>, Receiver<()>) {
+        let (stopped, stopped_receiver) = channel();
+        let countdown = ActorHandle::from_actor(Countdown {
+            remaining: messages,
+            stopped: Some(stopped),
+            core: actor_core(messages, Box::new(CountdownBehavior)).await,
+        });
+
+        (countdown, stopped_receiver)
+    }
+
+    /// Each of the two actors needs the other's address, so the pinger's mailbox, and with it its
+    /// address, is built before the ponger, which is built before the pinger itself.
+    async fn new_pair() -> (ActorHandle<Pinger>, ActorHandle<Ponger>, Receiver<()>) {
+        let pinger_core = actor_core(PING_PONG_ROUNDS + 1, Box::new(PingerBehavior)).await;
+        let (ponger_stopped, ponger_stopped_receiver) = channel();
+        let (stopped, stopped_receiver) = channel();
+
+        let ponger = ActorHandle::from_actor(Ponger {
+            pinger: pinger_core.actor_address(),
+            remaining: PING_PONG_ROUNDS,
+            stopped: Some(ponger_stopped),
+            core: actor_core(PING_PONG_ROUNDS, Box::new(PongerBehavior)).await,
+        });
+        let pinger = ActorHandle::from_actor(Pinger {
+            ponger: ponger.actor_address(),
+            ponger_stopped: Some(ponger_stopped_receiver),
+            remaining: PING_PONG_ROUNDS,
+            stopped: Some(stopped),
+            core: pinger_core,
+        });
+
+        (pinger, ponger, stopped_receiver)
+    }
+
+    async fn start(actors: Vec<Arc<dyn ActorRuntime + Send + Sync>>) -> Arc<Supervisor> {
+        let supervisor = Arc::<Supervisor>::new(Supervisor::new(SupervisionStrategy::Restart));
+
+        for actor in actors {
+            supervisor
+                .register_actor(actor, None)
+                .await
+                .expect("weaver actor is registered");
+        }
+        supervisor
+            .start_actor_supervision()
+            .await
+            .expect("weaver supervision is started");
+        while !supervisor.are_actors_ready().await {
+            yield_now().await;
+        }
+
+        supervisor
+    }
+
+    /// weaver has no unbounded mailbox and takes the capacity from the process wide runtime
+    /// configuration while the actor's mailbox is built, so set that first, every single time!
+    async fn actor_core(capacity: usize, behavior: Box<dyn Behavior>) -> ActorCore {
+        RuntimeConfigurationProvider::set(RuntimeConfig {
+            max_mailbox_size: capacity,
+        });
+
+        ActorContext::new(behavior).await.into_core()
+    }
+
+    fn signal(stopped: Option<Sender<()>>) {
+        if let Some(stopped) = stopped {
+            stopped.send(()).expect("weaver termination is awaited");
+        }
+    }
+
+    #[derive(Event)]
+    struct Tick;
+
+    #[derive(Debug)]
+    struct CountdownBehavior;
+
+    impl Behavior for CountdownBehavior {
+        fn get_list_of_subscriptions(&self) -> Vec<Subscription> {
+            vec![Subscription::event::<Tick>()]
+        }
+    }
+
+    #[as_actor]
+    #[derive(Actor, Debug)]
+    struct Countdown {
+        remaining: usize,
+        stopped: Option<Sender<()>>,
+    }
+
+    #[mailbox_handling]
+    impl Countdown {
+        #[event_handler(Tick)]
+        async fn handle_tick(&mut self, _: Arc<Tick>) {
+            match count_down(self.remaining) {
+                Some(remaining) => self.remaining = remaining,
+                None => {
+                    self.core
+                        .stop_handle()
+                        .request_stop_nowait(ActorStopReason::Completed);
+                }
+            }
+        }
+    }
+
+    #[async_trait]
+    impl ActorLifecycle for Countdown {
+        // weaver's own ActorStopHandle can lose a completion, so signal termination from here!
+        async fn on_stopped(&mut self, _: &ActorStopReason) -> Result<(), ActorLifecycleError> {
+            signal(self.stopped.take());
+
+            Ok(())
+        }
+    }
+
+    #[derive(Event)]
+    struct Go;
+
+    #[derive(Event)]
+    struct Pong;
+
+    #[derive(Debug)]
+    struct PingerBehavior;
+
+    impl Behavior for PingerBehavior {
+        fn get_list_of_subscriptions(&self) -> Vec<Subscription> {
+            vec![Subscription::event::<Go>(), Subscription::event::<Pong>()]
+        }
+    }
+
+    #[as_actor]
+    #[derive(Actor, Debug)]
+    struct Pinger {
+        ponger: ActorAddress,
+        ponger_stopped: Option<Receiver<()>>,
+        remaining: usize,
+        stopped: Option<Sender<()>>,
+    }
+
+    #[mailbox_handling]
+    impl Pinger {
+        #[event_handler(Go)]
+        async fn handle_go(&mut self, _: Arc<Go>) {
+            self.ponger
+                .send_event(Ping)
+                .await
+                .expect("weaver ping is sent");
+        }
+
+        #[event_handler(Pong)]
+        async fn handle_pong(&mut self, _: Arc<Pong>) {
+            match count_down(self.remaining) {
+                Some(remaining) => {
+                    self.remaining = remaining;
+                    self.ponger
+                        .send_event(Ping)
+                        .await
+                        .expect("weaver ping is sent");
+                }
+
+                None => {
+                    self.core
+                        .stop_handle()
+                        .request_stop_nowait(ActorStopReason::Completed);
+                }
+            }
+        }
+    }
+
+    #[async_trait]
+    impl ActorLifecycle for Pinger {
+        // Must complete before the pinger reports termination, like tellus's child barrier!
+        async fn on_stopped(&mut self, _: &ActorStopReason) -> Result<(), ActorLifecycleError> {
+            if let Some(ponger_stopped) = self.ponger_stopped.take() {
+                ponger_stopped.await.expect("weaver ponger terminates");
+            }
+            signal(self.stopped.take());
+
+            Ok(())
+        }
+    }
+
+    #[derive(Event)]
+    struct Ping;
+
+    #[derive(Debug)]
+    struct PongerBehavior;
+
+    impl Behavior for PongerBehavior {
+        fn get_list_of_subscriptions(&self) -> Vec<Subscription> {
+            vec![Subscription::event::<Ping>()]
+        }
+    }
+
+    #[as_actor]
+    #[derive(Actor, Debug)]
+    struct Ponger {
+        pinger: ActorAddress,
+        remaining: usize,
+        stopped: Option<Sender<()>>,
+    }
+
+    #[mailbox_handling]
+    impl Ponger {
+        #[event_handler(Ping)]
+        async fn handle_ping(&mut self, _: Arc<Ping>) {
+            self.pinger
+                .send_event(Pong)
+                .await
+                .expect("weaver pong is sent");
+
+            match count_down(self.remaining) {
+                Some(remaining) => self.remaining = remaining,
+                None => {
+                    self.core
+                        .stop_handle()
+                        .request_stop_nowait(ActorStopReason::Completed);
+                }
+            }
+        }
+    }
+
+    #[async_trait]
+    impl ActorLifecycle for Ponger {
+        async fn on_stopped(&mut self, _: &ActorStopReason) -> Result<(), ActorLifecycleError> {
+            signal(self.stopped.take());
 
             Ok(())
         }

@@ -16,11 +16,13 @@ serde      = { workspace = true, features = [ "derive" ] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-criterion = { workspace = true, features = [ "async_tokio" ] }
-kameo     = { workspace = true }
-ractor    = { workspace = true, features = [ "tokio_runtime" ] }
-tokio     = { workspace = true, features = [ "macros", "rt-multi-thread" ] }
-tellus    = { workspace = true }
+async-trait = { workspace = true }
+criterion   = { workspace = true, features = [ "async_tokio" ] }
+kameo       = { workspace = true }
+ractor      = { workspace = true, features = [ "tokio_runtime" ] }
+tokio       = { workspace = true, features = [ "macros", "rt-multi-thread" ] }
+weaver      = { workspace = true }
+tellus      = { workspace = true }
 
 [[bench]]
 name    = "frameworks"

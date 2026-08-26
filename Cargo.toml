@@ -14,6 +14,7 @@ publish       = false
 
 [workspace.dependencies]
 anyhow                 = { version = "1.0" }
+async-trait            = { version = "0.1" }
 ciborium               = { version = "0.2" }
 composed               = { version = "0.1" }
 criterion              = { version = "0.8" }
@@ -33,4 +34,5 @@ tracing                = { version = "0.1" }
 tracing-subscriber     = { version = "0.3" }
 trait-variant          = { version = "0.1" }
 uuid                   = { version = "1.24" }
+weaver                 = { git = "ssh://git@github.com/jjimenezroda/weaver", rev = "4217eb14bbba8b05bb5145500f02f569458f5312" }
 tellus                 = { path = "tellus", version = "0.1.0" }
