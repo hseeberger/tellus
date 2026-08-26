@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787727380873,
+  "lastUpdate": 1787727382999,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -59,6 +59,56 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3498352,
             "range": "± 32679",
+            "unit": "ns/iter"
+          }
+        ]
+      }
+    ],
+    "Persistence": [
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "80e7177421e90a55b20e7cf1cbbc914903cc80ec",
+          "message": "Merge pull request #21 from hseeberger/feat/persistence\n\nfeat: add event-sourced persistence",
+          "timestamp": "2026-08-26T08:53:42+02:00",
+          "tree_id": "98716b2cae996f3fa4c9ad53d94298f8920d71f0",
+          "url": "https://github.com/hseeberger/tellus/commit/80e7177421e90a55b20e7cf1cbbc914903cc80ec"
+        },
+        "date": 1787727382366,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2963895,
+            "range": "± 11288",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2916345,
+            "range": "± 15207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1755749,
+            "range": "± 13886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 208540,
+            "range": "± 6495",
             "unit": "ns/iter"
           }
         ]
