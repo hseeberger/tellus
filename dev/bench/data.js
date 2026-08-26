@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787735651261,
+  "lastUpdate": 1787735652790,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -169,6 +169,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 208540,
             "range": "± 6495",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e51adc4128f5c749e297ca3b3cca92e28d707702",
+          "message": "Merge pull request #47 from hseeberger/docs/refresh-after-persistence\n\ndocs: refresh docs after persistence landed",
+          "timestamp": "2026-08-26T11:11:33+02:00",
+          "tree_id": "25dc57378d1d9b392e4be70e040341db6a59bfdb",
+          "url": "https://github.com/hseeberger/tellus/commit/e51adc4128f5c749e297ca3b3cca92e28d707702"
+        },
+        "date": 1787735652483,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3010148,
+            "range": "± 10571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2941202,
+            "range": "± 5354",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1632694,
+            "range": "± 7700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 210074,
+            "range": "± 3640",
             "unit": "ns/iter"
           }
         ]
