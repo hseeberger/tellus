@@ -23,8 +23,8 @@
 [comparison-url]: https://hseeberger.github.io/tellus/comparison/
 
 An actor framework for Rust, built on [Tokio](https://tokio.rs): typed messages, supervision
-trees and death watch with an ordering guarantee. Inspired by Carl Hewitt's
-[Actor Model](https://en.wikipedia.org/wiki/Actor_model) and strongly influenced by
+trees, death watch with an ordering guarantee and optional event-sourced persistence. Inspired by
+Carl Hewitt's [Actor Model](https://en.wikipedia.org/wiki/Actor_model) and strongly influenced by
 [Akka](https://akka.io).
 
 tellus is under active development and its API is still settling.
@@ -297,6 +297,15 @@ level configured via `RUST_LOG`.
   ```shell
   RUST_LOG=tellus=debug cargo run --quiet -p tellus --example device_manager
   ```
+
+The event-sourced examples live with the PostgreSQL stores in
+[`tellus-persistence-postgres`](../tellus-persistence-postgres); both start the `postgres` service
+from the root `docker-compose.yaml`:
+
+```shell
+just run-examples-event-sourced-counter
+just run-examples-event-sourced-supervision
+```
 
 ## License
 

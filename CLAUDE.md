@@ -9,8 +9,8 @@ Tasks are defined in the [justfile](justfile):
 - `just all`: check, fmt, lint, test and doc; the full local gate for every crate except `tellus-comparison`. The `tellus-persistence-postgres` tests use testcontainers, so the gate needs Docker.
 - `just check` / `just lint` / `just test`: the individual steps, each a feature matrix, every run scoped to one crate: five runs of `-p tellus` (no features, `serde`, `persistence`, `persistence-tests`, all features) plus one of `-p tellus-persistence-postgres`; check and lint additionally run `-p tellus` with the `hotpath` feature. No run spans the workspace: a build containing both crates feature-unifies `tellus` with `persistence` enabled, so only scoped runs exercise the reduced-feature configurations, and only a scoped run builds `tellus-persistence-postgres` against the feature set it actually declares. `just doc` runs workspace-wide with all features.
 - `just fmt`: formats Rust (nightly rustfmt, the justfile derives the matching nightly from the installed stable) and TOML (taplo). Plain `cargo fmt` is not enough; the rustfmt config uses unstable options.
-- Single test: `cargo test -p tellus --test watch <test_name>` (integration tests live in `tellus/tests/`: `supervision.rs`, `termination.rs`, `watch.rs`).
-- Examples: `just run-examples-hello`, `just run-examples-scatter-gather`.
+- Single test: `cargo test -p tellus --test watch <test_name>` (integration tests live in `tellus/tests/`: `ask.rs`, `persistence.rs`, `persistence_tests.rs`, `supervision.rs`, `termination.rs`, `watch.rs`).
+- Examples: `just run-examples-hello`, `just run-examples-scatter-gather`, `just run-examples-event-sourced-counter`.
 
 Benchmarks:
 
@@ -35,7 +35,7 @@ CI enforces that a PR consists of exactly one commit; squash before pushing.
 
 ## Architecture
 
-The core is small (~1200 lines in `tellus/src`) but dense with cross-file invariants:
+The core is small (~2300 lines in `tellus/src`, plus ~2500 for persistence) but dense with cross-file invariants:
 
 - An actor is a state machine: `Actor::receive` (`actor.rs`) is a synchronous function from owned state and an `Incoming` (message or terminated signal) to `Control::Continue(next_state)` or `Control::Stop`. No async, no `&mut self`; each actor runs as one Tokio task.
 - `actor_context.rs` holds the run loop, spawning and the termination sequence. Actors form a tree; termination is bottom-up, with each actor's Tokio watch channel closing (all child receivers dropped) as the barrier proving every descendant has terminated. The state is dropped before the children are stopped; only the actor value waits for the barrier, and the watchers are signaled last: a terminated signal must prove the actor's destructors have run.
