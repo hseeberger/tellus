@@ -59,6 +59,12 @@
       .header-label {
         margin-right: 4px;
       }
+      .page-title {
+        font-size: 3rem;
+        font-weight: 700;
+        margin: 0 0 8px;
+        text-align: center;
+      }
       .benchmark-set {
         margin: 8px 0;
         width: 100%;
@@ -66,7 +72,7 @@
         flex-direction: column;
       }
       .benchmark-title {
-        font-size: 3rem;
+        font-size: 2rem;
         font-weight: 600;
         word-break: break-word;
         text-align: center;
@@ -88,6 +94,7 @@
 
   <body>
     <header id="header">
+      <h1 class="page-title">Benchmarks</h1>
       <div class="header-item">
         <strong class="header-label">Last Update:</strong>
         <span id="last-update"></span>
@@ -254,7 +261,7 @@
             setElem.className = 'benchmark-set';
             main.appendChild(setElem);
 
-            const nameElem = document.createElement('h1');
+            const nameElem = document.createElement('h2');
             nameElem.className = 'benchmark-title';
             nameElem.textContent = name;
             setElem.appendChild(nameElem);
