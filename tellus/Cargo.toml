@@ -1,6 +1,6 @@
 [package]
 name          = "tellus"
-description   = "A resilient world of actors for Rust: typed messages, supervision trees, death watch."
+description   = "A resilient world of actors for Rust: typed messages, supervision trees, death watch, event sourcing."
 version       = { workspace = true }
 edition       = { workspace = true }
 license       = { workspace = true }

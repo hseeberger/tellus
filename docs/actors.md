@@ -2,7 +2,8 @@
 
 This document explains how the tellus core works, from the public API down to the run loop: defining
 actors, the actor tree, messaging, supervision and death watch. The implementation lives in
-[`tellus/src`](../tellus/src). For a user-level summary see the [README](../tellus/README.md).
+[`tellus/src`](../tellus/src). For a user-level summary see the [README](../tellus/README.md); for
+event-sourced actors, which build on everything here, see [persistence.md](persistence.md).
 
 ## Overview
 
@@ -189,7 +190,10 @@ registers once as a property of the map, and each watching actor records what it
 ## The run loop
 
 `spawn` in [`actor_context.rs`](../tellus/src/actor_context.rs), reached via
-`ActorContext::spawn_with_config` and by `spawn_root`, spawns one Tokio task per actor:
+`ActorContext::spawn_with_config` and by `spawn_root`, spawns one Tokio task per actor;
+event-sourced actors enter the same loop through
+[`persistence/spawn.rs`](../tellus/src/persistence/spawn.rs), described in
+[persistence.md](persistence.md):
 
 1. Run `init`; a failure is fed to supervision just like a failure of `receive`, so under
    `Restart` even the first initialization is retried.
