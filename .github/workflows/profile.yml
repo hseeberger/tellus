@@ -70,6 +70,20 @@ jobs:
           git checkout "$GITHUB_SHA" -- justfile
           just profile-alloc
 
+      # The merge base may predate the persistence profiling example; the report then carries a
+      # note instead of the persistence comparison for this PR. Gated on the base step's outcome:
+      # if that step failed before its checkout, the repository still holds the PR head, and
+      # profiling it here would report a head-vs-head persistence comparison as the base.
+      - name: Profile merge base (persistence)
+        id: base-persistence
+        if: steps.base.outcome == 'success'
+        continue-on-error: true
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/base-persistence.json
+        run: |
+          just profile-persistence-alloc
+
       - name: Profile PR head
         env:
           HOTPATH_OUTPUT_FORMAT: json
@@ -78,18 +92,33 @@ jobs:
           git checkout -f --detach "$GITHUB_SHA"
           just profile-alloc
 
-      - name: Compare against merge base
-        if: steps.base.outcome == 'success'
+      - name: Profile PR head (persistence)
+        env:
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: /tmp/metrics/head-persistence.json
         run: |
-          hotpath-utils profile-pr \
-            --head-metrics /tmp/metrics/head.json \
-            --base-metrics /tmp/metrics/base.json \
-            --dry-run > report.md
+          just profile-persistence-alloc
 
-      - name: Note missing merge base profile
-        if: steps.base.outcome != 'success'
+      - name: Compare against merge base
         run: |
-          echo "_The merge base cannot be profiled, likely it lacks the hotpath feature; no comparison._" > report.md
+          echo "## Messaging" > report.md
+          if [ "${{ steps.base.outcome }}" = "success" ]; then
+            hotpath-utils profile-pr \
+              --head-metrics /tmp/metrics/head.json \
+              --base-metrics /tmp/metrics/base.json \
+              --dry-run >> report.md
+          else
+            echo "_The merge base cannot be profiled, likely it lacks the hotpath feature; no comparison._" >> report.md
+          fi
+          echo "## Persistence" >> report.md
+          if [ "${{ steps.base-persistence.outcome }}" = "success" ]; then
+            hotpath-utils profile-pr \
+              --head-metrics /tmp/metrics/head-persistence.json \
+              --base-metrics /tmp/metrics/base-persistence.json \
+              --dry-run >> report.md
+          else
+            echo "_The merge base cannot be profiled, likely it lacks the persistence profiling example; no comparison._" >> report.md
+          fi
 
       - name: Report
         run: |
@@ -106,3 +135,7 @@ jobs:
       - name: Enforce zero allocations on the messaging path
         run: |
           just profile-alloc-check /tmp/metrics/head.json
+
+      - name: Enforce zero allocations on the apply and replay paths
+        run: |
+          just profile-persistence-alloc-check /tmp/metrics/head-persistence.json

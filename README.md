@@ -38,6 +38,9 @@ tellus = { version = "0.1" }
 
 - [`tellus`](tellus): the actor framework itself. See [its README](tellus/README.md) for highlights,
   getting started and the core concepts.
+- [`tellus-persistence-postgres`](tellus-persistence-postgres): PostgreSQL event and snapshot
+  stores for tellus persistence. The contract test suite any store implementation must pass ships
+  with `tellus` itself, behind the `persistence-tests` feature.
 - [`tellus-comparison`](tellus-comparison): messaging benchmarks comparing tellus against
   [kameo](https://crates.io/crates/kameo) and [ractor](https://crates.io/crates/ractor). See
   [its README](tellus-comparison/README.md) for the methodology, fairness rules and caveats and the
@@ -61,6 +64,8 @@ dependencies by default:
 How tellus works under the hood, top-down with links into the implementation:
 
 - [docs/actors.md](docs/actors.md): the core, from the `Actor` trait down to the run loop.
+- [docs/persistence.md](docs/persistence.md): event-sourced persistence, from the `EventSourced`
+  trait to recovery, fencing and schema evolution.
 
 ## Development
 

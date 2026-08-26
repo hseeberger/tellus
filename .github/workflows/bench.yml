@@ -67,10 +67,30 @@ jobs:
           git checkout "$GITHUB_SHA" -- justfile
           just bench-save main
 
+      # The merge base may predate the persistence benchmark; then there is no baseline, the head
+      # run below is skipped and the report simply carries no persistence rows for this PR. Only
+      # that case is skipped: a failing benchmark run still fails the job, so a transient failure
+      # cannot silently drop the persistence rows from bench-compare and bench-gate.
+      - name: Benchmark merge base (persistence)
+        id: base-persistence
+        run: |
+          if [ -f tellus/benches/persistence.rs ]; then
+            just bench-persistence-save main
+            echo "baseline=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "the merge base predates the persistence benchmark; skipping the baseline"
+            echo "baseline=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Benchmark PR head
         run: |
           git checkout -f --detach "$GITHUB_SHA"
           just bench-compare main
+
+      - name: Benchmark PR head (persistence)
+        if: steps.base-persistence.outputs.baseline == 'true'
+        run: |
+          just bench-persistence-compare main
 
       - name: Report
         run: |
@@ -122,12 +142,32 @@ jobs:
           rm -rf target/criterion
           just bench-bencher | tee bench-output.txt
 
+      - name: Benchmark (persistence)
+        run: |
+          just bench-persistence-bencher | tee bench-persistence-output.txt
+
+      # One dashboard section per "name", all in the same data file, which is keyed by name.
       - name: Store result
         uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
+          name: Core
           github-token: ${{ secrets.GITHUB_TOKEN }}
           tool: cargo
           output-file-path: bench-output.txt
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench
+          auto-push: true
+          alert-threshold: "150%"
+          comment-on-alert: true
+          fail-on-alert: false
+
+      - name: Store result (persistence)
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
+        with:
+          name: Persistence
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: cargo
+          output-file-path: bench-persistence-output.txt
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
           auto-push: true
