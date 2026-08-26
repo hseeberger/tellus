@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787736712370,
+  "lastUpdate": 1787736713918,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -277,6 +277,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 210074,
             "range": "± 3640",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "122046c900e5309a4567d0a13b3532cb9a4ab17a",
+          "message": "Merge pull request #49 from hseeberger/build/publish-persistence-postgres\n\nbuild: publish tellus-persistence-postgres to crates.io",
+          "timestamp": "2026-08-26T11:29:52+02:00",
+          "tree_id": "29a63385a27e372b211c583741b956b1e1ccbec7",
+          "url": "https://github.com/hseeberger/tellus/commit/122046c900e5309a4567d0a13b3532cb9a4ab17a"
+        },
+        "date": 1787736713568,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3202949,
+            "range": "± 12756",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3271057,
+            "range": "± 30443",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1535906,
+            "range": "± 2947",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 184317,
+            "range": "± 1025",
             "unit": "ns/iter"
           }
         ]
