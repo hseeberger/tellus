@@ -4,7 +4,7 @@ members         = [ "tellus", "tellus-persistence-postgres", "tellus-comparison"
 default-members = [ "tellus", "tellus-persistence-postgres" ]
 
 [workspace.package]
-version       = "0.1.0"
+version       = "0.1.1"
 edition       = "2024"
 license       = "Apache-2.0"
 homepage      = "https://github.com/hseeberger/tellus"
@@ -33,4 +33,4 @@ tracing                = { version = "0.1" }
 tracing-subscriber     = { version = "0.3" }
 trait-variant          = { version = "0.1" }
 uuid                   = { version = "1.24" }
-tellus                 = { path = "tellus", version = "0.1.0" }
+tellus                 = { path = "tellus", version = "0.1.1" }
