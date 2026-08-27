@@ -32,4 +32,4 @@ tracing                = { version = "0.1" }
 tracing-subscriber     = { version = "0.3" }
 trait-variant          = { version = "0.1" }
 uuid                   = { version = "1.24" }
-tellus                 = { path = "tellus", version = "0.1.0" }
+tellus                 = { path = "tellus", version = "0.2.0" }
