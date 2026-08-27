@@ -5,6 +5,9 @@
 //!   command, without snapshots and with a snapshot every [SNAPSHOT_EACH] events.
 //! - `recover`: an actor recovers from a stream of [EVENTS] events, by full replay and from a
 //!   snapshot plus replay tail.
+//!
+//! All benchmarks run on a Tokio runtime with a fixed worker thread count, so measurements do not
+//! depend on the host's core count.
 
 mod in_memory_store {
     include!(concat!(
@@ -24,8 +27,9 @@ use tellus::{
     ActorContext, ActorSystem, Effect, EventSourced, Incoming, Persistence, PersistenceId,
     SchemaVersion, Versioned,
 };
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 
+const WORKER_THREADS: usize = 4;
 const EVENTS: u64 = 10_000;
 const SNAPSHOT_EACH: u64 = 3_000;
 
@@ -35,7 +39,7 @@ const _: () = assert!(
 );
 
 fn persist(c: &mut Criterion) {
-    let rt = Runtime::new().expect("tokio runtime can be created");
+    let rt = runtime();
 
     let mut group = c.benchmark_group("persist");
     group.throughput(Throughput::Elements(EVENTS));
@@ -69,7 +73,7 @@ fn persist(c: &mut Criterion) {
 }
 
 fn recover(c: &mut Criterion) {
-    let rt = Runtime::new().expect("tokio runtime can be created");
+    let rt = runtime();
 
     let mut group = c.benchmark_group("recover");
 
@@ -112,6 +116,14 @@ fn recover(c: &mut Criterion) {
     }
 
     group.finish();
+}
+
+fn runtime() -> Runtime {
+    Builder::new_multi_thread()
+        .worker_threads(WORKER_THREADS)
+        .enable_all()
+        .build()
+        .expect("tokio runtime can be created")
 }
 
 fn spawn(store: &InMemoryStore, snapshot_each: Option<u64>) -> ActorSystem<Increase> {
@@ -199,10 +211,10 @@ impl EventSourced for Counter {
 criterion_group!(
     name = benches;
     config = Criterion::default()
-        .sample_size(10)
+        .sample_size(30)
         .noise_threshold(0.05)
-        .warm_up_time(Duration::from_secs(1))
-        .measurement_time(Duration::from_secs(5));
+        .warm_up_time(Duration::from_secs(3))
+        .measurement_time(Duration::from_secs(10));
     targets = persist, recover
 );
 criterion_main!(benches);
