@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787845458369,
+  "lastUpdate": 1787845461336,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -385,6 +385,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 184317,
             "range": "± 1025",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0f679455839c1ea6d716352859a2dcd95ed40711",
+          "message": "Merge pull request #51 from hseeberger/docs/cargo-add-install\n\ndocs: install via cargo add instead of pinned versions",
+          "timestamp": "2026-08-27T17:42:04+02:00",
+          "tree_id": "95736cb2e525bf5f787649f3157aa160bfe0b767",
+          "url": "https://github.com/hseeberger/tellus/commit/0f679455839c1ea6d716352859a2dcd95ed40711"
+        },
+        "date": 1787845460631,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3404791,
+            "range": "± 52937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3385909,
+            "range": "± 47930",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1311595,
+            "range": "± 4937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 167741,
+            "range": "± 3752",
             "unit": "ns/iter"
           }
         ]
