@@ -5,6 +5,9 @@
 //! - `ping_pong`: pairs of actors play ping-pong, one pair and one pair per core.
 //! - `fan_out`: the root actor sends messages round-robin to its workers, one worker per core and
 //!   four workers per core.
+//!
+//! All benchmarks run on a Tokio runtime with a fixed worker thread count, so measurements do not
+//! depend on the host's core count.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use std::{
@@ -16,8 +19,9 @@ use std::{
 use tellus::{
     Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, Control, Incoming, MailboxCapacity,
 };
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 
+const WORKER_THREADS: usize = 4;
 const FLOOD_MESSAGES: usize = 100_000;
 const FLOOD_CAPACITY: NonZeroUsize =
     NonZeroUsize::new(FLOOD_MESSAGES).expect("flood message count is not zero");
@@ -25,7 +29,7 @@ const PING_PONG_ROUNDS: usize = 1_000;
 const FAN_OUT_MESSAGES: usize = 100_000;
 
 fn flood(c: &mut Criterion) {
-    let rt = Runtime::new().expect("tokio runtime can be created");
+    let rt = runtime();
 
     let mut group = c.benchmark_group("flood");
     group.throughput(Throughput::Elements(FLOOD_MESSAGES as u64));
@@ -61,7 +65,7 @@ fn flood(c: &mut Criterion) {
 }
 
 fn ping_pong(c: &mut Criterion) {
-    let rt = Runtime::new().expect("tokio runtime can be created");
+    let rt = runtime();
 
     let mut group = c.benchmark_group("ping_pong");
 
@@ -90,7 +94,7 @@ fn ping_pong(c: &mut Criterion) {
 }
 
 fn fan_out(c: &mut Criterion) {
-    let rt = Runtime::new().expect("tokio runtime can be created");
+    let rt = runtime();
 
     let mut group = c.benchmark_group("fan_out");
 
@@ -111,6 +115,14 @@ fn fan_out(c: &mut Criterion) {
     }
 
     group.finish();
+}
+
+fn runtime() -> Runtime {
+    Builder::new_multi_thread()
+        .worker_threads(WORKER_THREADS)
+        .enable_all()
+        .build()
+        .expect("tokio runtime can be created")
 }
 
 async fn measure<A, F, D>(iters: u64, make: F, drive: D) -> Duration
@@ -352,10 +364,10 @@ struct FanningOut {
 criterion_group!(
     name = benches;
     config = Criterion::default()
-        .sample_size(10)
+        .sample_size(30)
         .noise_threshold(0.05)
-        .warm_up_time(Duration::from_secs(1))
-        .measurement_time(Duration::from_secs(5));
+        .warm_up_time(Duration::from_secs(3))
+        .measurement_time(Duration::from_secs(10));
     targets = flood, ping_pong, fan_out
 );
 criterion_main!(benches);
