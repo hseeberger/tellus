@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787866533828,
+  "lastUpdate": 1787866535934,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -601,6 +601,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 141635,
             "range": "± 3048",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "105234ca3f6a7f3c36f7bb95f8bb8b1fef19e829",
+          "message": "Merge pull request #54 from hseeberger/release/tellus-0.2.0\n\nchore: release tellus 0.2.0 and tellus-persistence-postgres 0.1.0",
+          "timestamp": "2026-08-27T23:33:37+02:00",
+          "tree_id": "173bf718a78bdb32ab258f04cd95f1f2a59eefda",
+          "url": "https://github.com/hseeberger/tellus/commit/105234ca3f6a7f3c36f7bb95f8bb8b1fef19e829"
+        },
+        "date": 1787866535284,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2457849,
+            "range": "± 20934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2413849,
+            "range": "± 6395",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1226885,
+            "range": "± 9473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 149603,
+            "range": "± 5594",
             "unit": "ns/iter"
           }
         ]
