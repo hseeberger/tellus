@@ -7,6 +7,14 @@ clone, wires a whole `Persistence`.
 For the contract these stores implement, from replay equals live execution to fencing and schema
 evolution, see [docs/persistence.md](../docs/persistence.md).
 
+tellus-persistence-postgres is available on
+[crates.io](https://crates.io/crates/tellus-persistence-postgres):
+
+```sh
+cargo add tellus --features persistence
+cargo add tellus-persistence-postgres
+```
+
 ## Schema
 
 Events live in the `events` table with the primary key `(entity_type, entity_id, seq_no)`,
