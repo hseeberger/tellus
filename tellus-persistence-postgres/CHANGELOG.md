@@ -7,21 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1](https://github.com/hseeberger/tellus/compare/tellus-v0.1.0...tellus-v0.1.1) - 2026-08-27
+## [0.1.0](https://github.com/hseeberger/tellus/releases/tag/tellus-persistence-postgres-v0.1.0) - 2026-08-27
 
 ### Added
 
 - add event-sourced persistence
-- add hotpath-based profiling behind hotpath feature
 
 ### Other
 
 - use independent versions per crate
 - install via cargo add instead of pinned versions
+- publish tellus-persistence-postgres to crates.io
 - refresh docs after persistence landed
-
-## [0.1.0](https://github.com/hseeberger/tellus/releases/tag/tellus-v0.1.0) - 2026-08-24
-
-### Other
-
-- rename ferrier to tellus
