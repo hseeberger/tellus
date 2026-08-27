@@ -29,9 +29,8 @@ Carl Hewitt's [Actor Model](https://en.wikipedia.org/wiki/Actor_model) and stron
 
 tellus is available on [crates.io](https://crates.io/crates/tellus):
 
-```toml
-[dependencies]
-tellus = { version = "0.1" }
+```sh
+cargo add tellus
 ```
 
 ## Packages

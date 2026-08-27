@@ -62,11 +62,10 @@ tellus is under active development and its API is still settling.
 
 tellus is available on [crates.io](https://crates.io/crates/tellus):
 
-```toml
-[dependencies]
-anyhow = { version = "1.0" }
-tokio  = { version = "1", features = [ "macros", "rt-multi-thread" ] }
-tellus = { version = "0.1" }
+```sh
+cargo add anyhow
+cargo add tokio --features macros,rt-multi-thread
+cargo add tellus
 ```
 
 A minimal actor system with a single actor which handles one message and stops:
