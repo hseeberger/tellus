@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787846114383,
+  "lastUpdate": 1787846117395,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -493,6 +493,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 167741,
             "range": "± 3752",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "779ef2f79d25a8532753cbbb110a8b93ce8bcbb9",
+          "message": "Merge pull request #52 from hseeberger/build/independent-crate-versions\n\nbuild: use independent versions per crate",
+          "timestamp": "2026-08-27T17:53:17+02:00",
+          "tree_id": "bb4b2115dc6995dd7741bc79ba515d70bc94d278",
+          "url": "https://github.com/hseeberger/tellus/commit/779ef2f79d25a8532753cbbb110a8b93ce8bcbb9"
+        },
+        "date": 1787846116378,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2517560,
+            "range": "± 26564",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2639646,
+            "range": "± 20860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1195492,
+            "range": "± 6157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 141635,
+            "range": "± 3048",
             "unit": "ns/iter"
           }
         ]
