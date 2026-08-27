@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787736713918,
+  "lastUpdate": 1787845458369,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -179,6 +179,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3555818,
             "range": "± 9906",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0f679455839c1ea6d716352859a2dcd95ed40711",
+          "message": "Merge pull request #51 from hseeberger/docs/cargo-add-install\n\ndocs: install via cargo add instead of pinned versions",
+          "timestamp": "2026-08-27T17:42:04+02:00",
+          "tree_id": "95736cb2e525bf5f787649f3157aa160bfe0b767",
+          "url": "https://github.com/hseeberger/tellus/commit/0f679455839c1ea6d716352859a2dcd95ed40711"
+        },
+        "date": 1787845457377,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 26640174,
+            "range": "± 1317423",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 33932148,
+            "range": "± 1002903",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 915378,
+            "range": "± 6953",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 1118685,
+            "range": "± 37016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 9509958,
+            "range": "± 221441",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 8874525,
+            "range": "± 228582",
             "unit": "ns/iter"
           }
         ]
