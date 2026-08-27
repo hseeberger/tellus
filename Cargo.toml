@@ -4,7 +4,6 @@ members         = [ "tellus", "tellus-persistence-postgres", "tellus-comparison"
 default-members = [ "tellus", "tellus-persistence-postgres" ]
 
 [workspace.package]
-version       = "0.1.0"
 edition       = "2024"
 license       = "Apache-2.0"
 homepage      = "https://github.com/hseeberger/tellus"
