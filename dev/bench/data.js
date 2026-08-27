@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787869011458,
+  "lastUpdate": 1787869013853,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -817,6 +817,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 209484,
             "range": "± 6380",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9392dec4a4ce622e105058bcd1c0f7f1804c001e",
+          "message": "Merge pull request #56 from hseeberger/ci/no-tag-trigger\n\nci: drop tag trigger from CI workflow",
+          "timestamp": "2026-08-28T00:13:21+02:00",
+          "tree_id": "e99834098d29fbda0b78763d4c6c5488c76f4cc0",
+          "url": "https://github.com/hseeberger/tellus/commit/9392dec4a4ce622e105058bcd1c0f7f1804c001e"
+        },
+        "date": 1787869013244,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3142533,
+            "range": "± 20834",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3112321,
+            "range": "± 28054",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1484287,
+            "range": "± 3327",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 190920,
+            "range": "± 6711",
             "unit": "ns/iter"
           }
         ]
