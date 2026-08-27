@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787868415951,
+  "lastUpdate": 1787868418138,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -709,6 +709,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 149603,
             "range": "± 5594",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f7e8a3ec45a0f24d8c8bbc25a3a8f12714245fcf",
+          "message": "Merge pull request #55 from hseeberger/chore/bench-variance\n\nchore: pin bench runtime threads and raise sampling",
+          "timestamp": "2026-08-28T00:03:23+02:00",
+          "tree_id": "e70ac7f0b854adff8d7a19ee4fe80d46869ed424",
+          "url": "https://github.com/hseeberger/tellus/commit/f7e8a3ec45a0f24d8c8bbc25a3a8f12714245fcf"
+        },
+        "date": 1787868417430,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3039433,
+            "range": "± 19013",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2934554,
+            "range": "± 12096",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1629315,
+            "range": "± 8422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 209484,
+            "range": "± 6380",
             "unit": "ns/iter"
           }
         ]
