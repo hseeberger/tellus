@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787908004269,
+  "lastUpdate": 1787908010590,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -925,6 +925,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 190920,
             "range": "± 6711",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "459ca7503272e953ef66a61aa0f47d6732a6b42c",
+          "message": "Merge pull request #59 from hseeberger/ci/informational-bench-gate\n\nci: make bench comparison informational",
+          "timestamp": "2026-08-28T11:03:13+02:00",
+          "tree_id": "dcc0235bc8c9ae9325d2f84a4d24a06a0b774da1",
+          "url": "https://github.com/hseeberger/tellus/commit/459ca7503272e953ef66a61aa0f47d6732a6b42c"
+        },
+        "date": 1787908009847,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3017230,
+            "range": "± 26024",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3133426,
+            "range": "± 41251",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1641699,
+            "range": "± 11941",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 205240,
+            "range": "± 6712",
             "unit": "ns/iter"
           }
         ]
