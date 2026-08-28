@@ -52,10 +52,9 @@ where
     /// command, never during replay.
     fn recovered(
         &self,
-        context: &ActorContext<Self::Command>,
+        _context: &ActorContext<Self::Command>,
         state: Self::State,
     ) -> Result<Self::State, Self::Error> {
-        let _ = context;
         Ok(state)
     }
 
@@ -84,8 +83,7 @@ where
     /// applied; [Some] is saved to the snapshot store, shortening future recoveries, [None] means
     /// no snapshot is due. Snapshots are a discardable derivative of the events, never a source
     /// of truth, so a failure to build or save one is logged and never fails the actor.
-    fn snapshot(&self, state: &Self::State) -> Result<Option<Self::Snapshot>, Self::Error> {
-        let _ = state;
+    fn snapshot(&self, _state: &Self::State) -> Result<Option<Self::Snapshot>, Self::Error> {
         Ok(None)
     }
 }

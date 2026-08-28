@@ -1027,7 +1027,6 @@ impl Actor for Parent {
     ) -> Result<Control<Self::State>, Self::Error> {
         match incoming {
             Incoming::Message(()) => Ok(Control::Stop),
-
             Incoming::Terminated(_) => Ok(Control::Continue(state)),
         }
     }

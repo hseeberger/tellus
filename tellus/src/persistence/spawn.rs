@@ -181,106 +181,100 @@ where
     let (self_ref, mailbox) = SelfRef::new(actor_id, config.mailbox_capacity);
     let actor_ref = self_ref.actor_ref().clone();
 
-    task::spawn({
-        async move {
-            let mut context = ActorContext::new(self_ref);
+    task::spawn(async move {
+        let mut context = ActorContext::new(self_ref);
 
-            let mut rx = parent_stopping_rx.clone();
-            let mut stopped_by_parent = pin!(rx.changed());
+        let mut rx = parent_stopping_rx.clone();
+        let mut stopped_by_parent = pin!(rx.changed());
 
-            let mut restarts = 0;
+        let mut restarts = 0;
 
-            'run: loop {
-                let recovered = select! {
-                    biased;
+        'run: loop {
+            let recovered = select! {
+                biased;
 
-                    _ = &mut stopped_by_parent => {
-                        debug!(%actor_id, "stopping, because parent stopped this actor");
-                        break 'run;
-                    }
+                _ = &mut stopped_by_parent => {
+                    debug!(%actor_id, "stopping, because parent stopped this actor");
+                    break 'run;
+                }
 
-                    recovered = recover(actor_id, &actor, &persistence) => recovered,
-                };
-                let mut up_since = None;
+                recovered = recover(actor_id, &actor, &persistence) => recovered,
+            };
+            let mut up_since = None;
 
-                if let Some(Recovered {
-                    id,
-                    state,
-                    mut next_seq_no,
-                }) = recovered
-                {
-                    let state = catch_and_log(actor_id, FAILED_TO_RECOVER, || {
-                        actor.recovered(&context, state)
-                    });
+            if let Some(Recovered {
+                id,
+                state,
+                mut next_seq_no,
+            }) = recovered
+            {
+                let state = catch_and_log(actor_id, FAILED_TO_RECOVER, || {
+                    actor.recovered(&context, state)
+                });
 
-                    if let Some(mut state) = state {
-                        up_since = Some(Instant::now());
+                if let Some(mut state) = state {
+                    up_since = Some(Instant::now());
 
-                        loop {
-                            let incoming =
-                                next_incoming!(actor_id, mailbox, context, stopped_by_parent);
-                            let Some(incoming) = incoming else {
-                                drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
-                                break 'run;
-                            };
+                    loop {
+                        let incoming =
+                            next_incoming!(actor_id, mailbox, context, stopped_by_parent);
+                        let Some(incoming) = incoming else {
+                            drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
+                            break 'run;
+                        };
 
-                            let effect = catch_and_log(actor_id, "actor failed", || {
-                                actor.handle(&context, incoming, &state)
-                            });
-                            let Some(effect) = effect else {
-                                drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
-                                break;
-                            };
+                        let effect = catch_and_log(actor_id, "actor failed", || {
+                            actor.handle(&context, incoming, &state)
+                        });
+                        let Some(effect) = effect else {
+                            drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
+                            break;
+                        };
 
-                            match settle(
-                                actor_id,
-                                &actor,
-                                &persistence,
-                                &id,
-                                state,
-                                next_seq_no,
-                                effect,
-                            )
-                            .await
-                            {
-                                Some(settled) => {
-                                    state = settled.state;
-                                    next_seq_no = settled.next_seq_no;
+                        match settle(
+                            actor_id,
+                            &actor,
+                            &persistence,
+                            &id,
+                            state,
+                            next_seq_no,
+                            effect,
+                        )
+                        .await
+                        {
+                            Some(settled) => {
+                                state = settled.state;
+                                next_seq_no = settled.next_seq_no;
 
-                                    if settled.stop {
-                                        debug!(%actor_id, "stopping as decided by actor");
-                                        drop_containing_panic(
-                                            actor_id,
-                                            STATE_FAILED_TO_DROP,
-                                            state,
-                                        );
-                                        break 'run;
-                                    }
+                                if settled.stop {
+                                    debug!(%actor_id, "stopping as decided by actor");
+                                    drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
+                                    break 'run;
                                 }
-
-                                None => break,
                             }
+
+                            None => break,
                         }
                     }
                 }
-
-                let restart = await_restart(
-                    actor_id,
-                    config.supervision_strategy,
-                    up_since,
-                    &mut restarts,
-                    &parent_stopping_rx,
-                    &mut stopped_by_parent,
-                    &mut context,
-                )
-                .await;
-                if !restart {
-                    break;
-                }
             }
 
-            terminate(actor, context, mailbox).await;
+            let restart = await_restart(
+                actor_id,
+                config.supervision_strategy,
+                up_since,
+                &mut restarts,
+                &parent_stopping_rx,
+                &mut stopped_by_parent,
+                &mut context,
+            )
+            .await;
+            if !restart {
+                break;
+            }
         }
+
+        terminate(actor, context, mailbox).await;
     });
 
     actor_ref
@@ -313,44 +307,42 @@ where
         }
     };
 
-    let decoded = match snapshot {
-        Some(StoredSnapshot {
+    let decoded = snapshot.and_then(|stored| {
+        let StoredSnapshot {
             next_seq_no,
             snapshot,
-        }) => {
-            match catch_unwind(AssertUnwindSafe(|| {
-                decode_versioned::<A::Snapshot, C>(
-                    &persistence.codec,
-                    &snapshot.manifest,
-                    snapshot.schema_version,
-                    &snapshot.payload,
-                )
-            })) {
-                Ok(Ok(snapshot)) => Some((snapshot, next_seq_no)),
+        } = stored;
 
-                Ok(Err(error)) => {
-                    warn!(
-                        %actor_id,
-                        %error,
-                        source = error.source(),
-                        "snapshot discarded, replaying in full"
-                    );
-                    None
-                }
+        match catch_unwind(AssertUnwindSafe(|| {
+            decode_versioned::<A::Snapshot, C>(
+                &persistence.codec,
+                &snapshot.manifest,
+                snapshot.schema_version,
+                &snapshot.payload,
+            )
+        })) {
+            Ok(Ok(snapshot)) => Some((snapshot, next_seq_no)),
 
-                Err(panic) => {
-                    warn!(
-                        %actor_id,
-                        panic = %PanicPayload(panic.as_ref()),
-                        "snapshot discarded, replaying in full"
-                    );
-                    None
-                }
+            Ok(Err(error)) => {
+                warn!(
+                    %actor_id,
+                    %error,
+                    source = error.source(),
+                    "snapshot discarded, replaying in full"
+                );
+                None
+            }
+
+            Err(panic) => {
+                warn!(
+                    %actor_id,
+                    panic = %PanicPayload(panic.as_ref()),
+                    "snapshot discarded, replaying in full"
+                );
+                None
             }
         }
-
-        None => None,
-    };
+    });
 
     let (mut state, mut next_seq_no) = match decoded {
         Some((snapshot, next_seq_no)) => {
@@ -488,47 +480,19 @@ where
     }
 
     if appended {
-        match catch_unwind(AssertUnwindSafe(|| {
+        let encoded = catch_unwind(AssertUnwindSafe(|| {
             encode_snapshot(actor_id, actor, &persistence.codec, &state)
-        })) {
-            Ok(Ok(Some(snapshot))) => {
-                let saved = catch_unwind_async(save_snapshot(
-                    &persistence.snapshot_store,
-                    id,
-                    next_seq_no,
-                    snapshot,
-                ))
-                .await;
-                match saved {
-                    Ok(Ok(())) => {}
+        }));
 
-                    Ok(Err(error)) => {
-                        warn!(%actor_id, %error, source = error.source(), "{SNAPSHOT_NOT_SAVED}");
-                    }
-
-                    Err(panic) => {
-                        warn!(
-                            %actor_id,
-                            panic = %PanicPayload(panic.as_ref()),
-                            "{SNAPSHOT_NOT_SAVED}"
-                        );
-                    }
-                }
-            }
-
-            Ok(Ok(None)) => {}
-
-            Ok(Err(error)) => {
-                warn!(%actor_id, %error, source = error.source(), "{SNAPSHOT_NOT_SAVED}");
-            }
-
-            Err(panic) => {
-                warn!(
-                    %actor_id,
-                    panic = %PanicPayload(panic.as_ref()),
-                    "{SNAPSHOT_NOT_SAVED}"
-                );
-            }
+        if let Some(Some(snapshot)) = warn_unless_snapshot_saved(actor_id, encoded) {
+            let saved = catch_unwind_async(save_snapshot(
+                &persistence.snapshot_store,
+                id,
+                next_seq_no,
+                snapshot,
+            ))
+            .await;
+            warn_unless_snapshot_saved(actor_id, saved);
         }
     }
 
@@ -537,6 +501,28 @@ where
         next_seq_no,
         stop,
     })
+}
+
+fn warn_unless_snapshot_saved<T, E>(
+    actor_id: ActorId,
+    result: Result<Result<T, E>, Box<dyn Any + Send>>,
+) -> Option<T>
+where
+    E: Error,
+{
+    match result {
+        Ok(Ok(value)) => Some(value),
+
+        Ok(Err(error)) => {
+            warn!(%actor_id, %error, source = error.source(), "{SNAPSHOT_NOT_SAVED}");
+            None
+        }
+
+        Err(panic) => {
+            warn!(%actor_id, panic = %PanicPayload(panic.as_ref()), "{SNAPSHOT_NOT_SAVED}");
+            None
+        }
+    }
 }
 
 async fn catch_panic_and_log_async<T, Fut>(actor_id: ActorId, failure: &str, fut: Fut) -> Option<T>

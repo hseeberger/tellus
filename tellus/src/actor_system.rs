@@ -49,10 +49,8 @@ where
         A::State: Send + 'static,
     {
         let (root, terminated_rx) = spawn_root(actor, config);
-        Self {
-            root,
-            terminated_rx,
-        }
+
+        Self::from_parts(root, terminated_rx)
     }
 
     /// The reference for the root actor.
@@ -66,7 +64,6 @@ where
         Ok(())
     }
 
-    #[cfg(feature = "persistence")]
     pub(crate) fn from_parts(root: ActorRef<M>, terminated_rx: oneshot::Receiver<()>) -> Self {
         Self {
             root,
