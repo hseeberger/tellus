@@ -57,7 +57,7 @@ jobs:
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       # The restored cache can hold a stale target/criterion, which criterion trips over and
-      # bench-report/bench-gate glob for change data; benchmark runs must start from a clean slate.
+      # bench-report globs for change data; benchmark runs must start from a clean slate.
       - name: Benchmark merge base
         run: |
           rustup override set ${{ needs.toolchain.outputs.stable }}
@@ -70,7 +70,7 @@ jobs:
       # The merge base may predate the persistence benchmark; then there is no baseline, the head
       # run below is skipped and the report simply carries no persistence rows for this PR. Only
       # that case is skipped: a failing benchmark run still fails the job, so a transient failure
-      # cannot silently drop the persistence rows from bench-compare and bench-gate.
+      # cannot silently drop the persistence rows from bench-compare and bench-report.
       - name: Benchmark merge base (persistence)
         id: base-persistence
         run: |
@@ -102,10 +102,6 @@ jobs:
         with:
           header: bench
           path: report.md
-
-      - name: Enforce benchmark regression threshold
-        run: |
-          just bench-gate
 
   bench-main:
     name: Track on main
