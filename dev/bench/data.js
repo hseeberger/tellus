@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787911030945,
+  "lastUpdate": 1787911033010,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1033,6 +1033,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 205240,
             "range": "± 6712",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "000d5bb542ddea72395185a6e662ebe2e136c94d",
+          "message": "Merge pull request #61 from hseeberger/refactor/reduce-nesting-and-duplication\n\nrefactor: cut nesting and duplication in core and persistence",
+          "timestamp": "2026-08-28T11:53:48+02:00",
+          "tree_id": "b661c51c56c02fe96cb8f02b1e17b1389c161b2a",
+          "url": "https://github.com/hseeberger/tellus/commit/000d5bb542ddea72395185a6e662ebe2e136c94d"
+        },
+        "date": 1787911032372,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3137067,
+            "range": "± 17878",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3055988,
+            "range": "± 14048",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1768014,
+            "range": "± 7684",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 204812,
+            "range": "± 6855",
             "unit": "ns/iter"
           }
         ]
