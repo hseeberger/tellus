@@ -230,62 +230,59 @@ where
     let (self_ref, mailbox) = SelfRef::new(actor_id, config.mailbox_capacity);
     let actor_ref = self_ref.actor_ref().clone();
 
-    task::spawn({
-        async move {
-            let mut context = ActorContext::new(self_ref);
+    task::spawn(async move {
+        let mut context = ActorContext::new(self_ref);
 
-            let mut rx = parent_stopping_rx.clone();
-            let mut stopped_by_parent = pin!(rx.changed());
+        let mut rx = parent_stopping_rx.clone();
+        let mut stopped_by_parent = pin!(rx.changed());
 
-            let mut restarts = 0;
+        let mut restarts = 0;
 
-            'run: loop {
-                let state = catch_and_log(actor_id, "actor failed to initialize", || {
-                    actor.init(&context)
-                });
-                let mut up_since = None;
+        'run: loop {
+            let state = catch_and_log(actor_id, "actor failed to initialize", || {
+                actor.init(&context)
+            });
+            let mut up_since = None;
 
-                if let Some(mut state) = state {
-                    up_since = Some(Instant::now());
+            if let Some(mut state) = state {
+                up_since = Some(Instant::now());
 
-                    loop {
-                        let incoming =
-                            next_incoming!(actor_id, mailbox, context, stopped_by_parent);
-                        let Some(incoming) = incoming else {
-                            drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
+                loop {
+                    let incoming = next_incoming!(actor_id, mailbox, context, stopped_by_parent);
+                    let Some(incoming) = incoming else {
+                        drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
+                        break 'run;
+                    };
+
+                    match receive_incoming(actor_id, &actor, &context, incoming, state) {
+                        Some(Control::Continue(next_state)) => state = next_state,
+
+                        Some(Control::Stop) => {
+                            debug!(%actor_id, "stopping as decided by actor");
                             break 'run;
-                        };
-
-                        match receive_incoming(actor_id, &actor, &context, incoming, state) {
-                            Some(Control::Continue(next_state)) => state = next_state,
-
-                            Some(Control::Stop) => {
-                                debug!(%actor_id, "stopping as decided by actor");
-                                break 'run;
-                            }
-
-                            None => break,
                         }
-                    }
-                }
 
-                let restart = await_restart(
-                    actor_id,
-                    config.supervision_strategy,
-                    up_since,
-                    &mut restarts,
-                    &parent_stopping_rx,
-                    &mut stopped_by_parent,
-                    &mut context,
-                )
-                .await;
-                if !restart {
-                    break;
+                        None => break,
+                    }
                 }
             }
 
-            terminate(actor, context, mailbox).await;
+            let restart = await_restart(
+                actor_id,
+                config.supervision_strategy,
+                up_since,
+                &mut restarts,
+                &parent_stopping_rx,
+                &mut stopped_by_parent,
+                &mut context,
+            )
+            .await;
+            if !restart {
+                break;
+            }
         }
+
+        terminate(actor, context, mailbox).await;
     });
 
     actor_ref
@@ -360,25 +357,20 @@ where
     context.stop_children().await;
 
     // Again check if stopped by parent to avoid finding out after restarting.
-    if delay.is_zero() {
-        if parent_stopping_rx.has_changed().unwrap_or(true) {
-            debug!(%actor_id, "stopping, because parent stopped this actor");
-            return false;
-        }
+    let stopped = if delay.is_zero() {
+        parent_stopping_rx.has_changed().unwrap_or(true)
     } else {
         select! {
             biased;
-
-            _ = stopped_by_parent.as_mut() => {
-                debug!(%actor_id, "stopping, because parent stopped this actor");
-                return false;
-            }
-
-            _ = sleep(delay) => {}
+            _ = stopped_by_parent.as_mut() => true,
+            _ = sleep(delay) => false,
         }
+    };
+    if stopped {
+        debug!(%actor_id, "stopping, because parent stopped this actor");
     }
 
-    true
+    !stopped
 }
 
 /// The state must already have been dropped by the caller. The queued messages are moved out and

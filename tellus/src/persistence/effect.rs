@@ -26,11 +26,7 @@ where
 {
     /// Persist and apply nothing, e.g. for a command which only reads the state.
     pub fn none() -> Self {
-        Self {
-            events: Vec::new(),
-            stop: false,
-            thens: Vec::new(),
-        }
+        Self::persist_all([])
     }
 
     /// Persist the given event and apply it once durable.
@@ -52,11 +48,7 @@ where
 
     /// Persist nothing and stop this actor.
     pub fn stop() -> Self {
-        Self {
-            events: Vec::new(),
-            stop: true,
-            thens: Vec::new(),
-        }
+        Self::none().and_stop()
     }
 
     /// Stop this actor once this effect is settled, i.e. after its events are durable and applied

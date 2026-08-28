@@ -131,6 +131,7 @@ pub(crate) struct Full;
 #[derive(Clone)]
 enum Repr {
     Unbounded,
+
     Bounded {
         capacity: NonZeroUsize,
         count: Arc<AtomicUsize>,
