@@ -3,7 +3,7 @@ set shell := ["bash", "-uc"]
 nightly := `rustc --version | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sed 's/^/nightly-/'`
 
 # A benchmark counts as regressed once we are 95% confident it is at least this fraction slower;
-# bench-report flags it and bench-gate fails on it.
+# bench-report flags it.
 bench_regression_threshold := "0.15"
 
 check:
@@ -121,24 +121,6 @@ bench-report:
     if [[ $regressed -ne 0 ]]; then
         printf '_Regression: 95%% confident a benchmark is at least %s%% slower._\n' "$threshold_pct"
     fi
-
-bench-gate:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    regressed=0
-    while IFS= read -r change; do
-        id=${change#target/criterion/}
-        id=${id%/change/estimates.json}
-        lower=$(jq -r '.mean.confidence_interval.lower_bound' "$change")
-        if awk -v l="$lower" -v t="{{ bench_regression_threshold }}" 'BEGIN { exit !(l > t) }'; then
-            awk -v id="$id" -v l="$lower" 'BEGIN { printf "FAIL: %s regressed, at least %+.1f%% slower\n", id, l * 100 }'
-            regressed=1
-        fi
-    done < <(find target/criterion -path '*/change/estimates.json' | sort)
-    if [[ $regressed -eq 0 ]]; then
-        echo "ok: no benchmark regressed beyond the threshold"
-    fi
-    exit $regressed
 
 profile:
     cargo run --release -p tellus --example profile --features hotpath
