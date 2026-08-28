@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787908010590,
+  "lastUpdate": 1787911030945,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -539,6 +539,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3398305,
             "range": "± 19597",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "000d5bb542ddea72395185a6e662ebe2e136c94d",
+          "message": "Merge pull request #61 from hseeberger/refactor/reduce-nesting-and-duplication\n\nrefactor: cut nesting and duplication in core and persistence",
+          "timestamp": "2026-08-28T11:53:48+02:00",
+          "tree_id": "b661c51c56c02fe96cb8f02b1e17b1389c161b2a",
+          "url": "https://github.com/hseeberger/tellus/commit/000d5bb542ddea72395185a6e662ebe2e136c94d"
+        },
+        "date": 1787911029980,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 13370823,
+            "range": "± 369634",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 12477494,
+            "range": "± 30304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 684312,
+            "range": "± 14583",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 787640,
+            "range": "± 3577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 4945491,
+            "range": "± 72036",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 3414922,
+            "range": "± 19803",
             "unit": "ns/iter"
           }
         ]
