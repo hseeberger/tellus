@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787911033010,
+  "lastUpdate": 1788037531742,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -599,6 +599,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3414922,
             "range": "± 19803",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "92fa3b15bc5d904aab4a8d95a1b7171117f55582",
+          "message": "Merge pull request #62 from hseeberger/refactor/harden-core-and-persistence\n\nrefactor: harden core and persistence guarantees",
+          "timestamp": "2026-08-29T23:01:57+02:00",
+          "tree_id": "91b0982e85d89aefa13f11991c36e87b39fe737d",
+          "url": "https://github.com/hseeberger/tellus/commit/92fa3b15bc5d904aab4a8d95a1b7171117f55582"
+        },
+        "date": 1788037530728,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 11977959,
+            "range": "± 435282",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 16301949,
+            "range": "± 391520",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 675512,
+            "range": "± 18379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 798563,
+            "range": "± 5146",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 4894184,
+            "range": "± 58497",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 3474352,
+            "range": "± 26527",
             "unit": "ns/iter"
           }
         ]
