@@ -77,7 +77,7 @@ async fn err_from_first_init_terminates_system() {
 #[tokio::test]
 async fn restart_stops_children_before_reinitializing() {
     let alive = Arc::new(AtomicUsize::new(0));
-    let (child_started_tx, mut child_started_rx) = mpsc::channel(8);
+    let (child_started_tx, mut child_started_rx) = mpsc::unbounded_channel();
     let parent = Parent {
         alive: alive.clone(),
         child_started_tx,
@@ -618,7 +618,7 @@ impl Actor for BlockedInInit {
 
 struct Parent {
     alive: Arc<AtomicUsize>,
-    child_started_tx: mpsc::Sender<()>,
+    child_started_tx: mpsc::UnboundedSender<()>,
 }
 
 impl Actor for Parent {
@@ -647,7 +647,7 @@ impl Actor for Parent {
 
 struct Child {
     alive: Arc<AtomicUsize>,
-    started_tx: mpsc::Sender<()>,
+    started_tx: mpsc::UnboundedSender<()>,
 }
 
 impl Actor for Child {
@@ -657,7 +657,7 @@ impl Actor for Child {
 
     fn init(&self, _: &ActorContext<Self::Message>) -> Result<Self::State, Self::Error> {
         let alive = Alive::new(self.alive.clone());
-        let _ = self.started_tx.try_send(());
+        let _ = self.started_tx.send(());
         Ok(alive)
     }
 

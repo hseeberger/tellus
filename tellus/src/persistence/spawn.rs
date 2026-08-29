@@ -161,6 +161,18 @@ enum ReplayError {
     Gap { seq_no: SeqNo, expected: SeqNo },
 }
 
+#[derive(Debug, Error)]
+enum SnapshotError<E>
+where
+    E: Error,
+{
+    #[error(transparent)]
+    Actor(E),
+
+    #[error(transparent)]
+    Encode(#[from] EncodeError),
+}
+
 fn spawn_event_sourced<A, E, S, C>(
     parent_stopping_rx: watch::Receiver<()>,
     actor: A,
@@ -178,7 +190,7 @@ where
     C: Codec + Send + Sync + 'static,
 {
     let actor_id = ActorId::new();
-    let (self_ref, mailbox) = SelfRef::new(actor_id, config.mailbox_capacity);
+    let (self_ref, mut mailbox) = SelfRef::new(actor_id, config.mailbox_capacity);
     let actor_ref = self_ref.actor_ref().clone();
 
     task::spawn(async move {
@@ -481,7 +493,7 @@ where
 
     if appended {
         let encoded = catch_unwind(AssertUnwindSafe(|| {
-            encode_snapshot(actor_id, actor, &persistence.codec, &state)
+            encode_snapshot(actor, &persistence.codec, &state)
         }));
 
         if let Some(Some(snapshot)) = warn_unless_snapshot_saved(actor_id, encoded) {
@@ -645,24 +657,16 @@ where
 
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn encode_snapshot<A, C>(
-    actor_id: ActorId,
     actor: &A,
     codec: &C,
     state: &A::State,
-) -> Result<Option<EncodedSnapshot>, EncodeError>
+) -> Result<Option<EncodedSnapshot>, SnapshotError<A::Error>>
 where
     A: EventSourced,
     C: Codec,
 {
-    let snapshot = match actor.snapshot(state) {
-        Ok(Some(snapshot)) => snapshot,
-
-        Ok(None) => return Ok(None),
-
-        Err(error) => {
-            warn!(%actor_id, %error, source = error.source(), "{SNAPSHOT_NOT_SAVED}");
-            return Ok(None);
-        }
+    let Some(snapshot) = actor.snapshot(state).map_err(SnapshotError::Actor)? else {
+        return Ok(None);
     };
     let payload = codec.encode(&snapshot)?;
 
