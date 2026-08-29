@@ -25,6 +25,8 @@ use tellus_persistence_postgres::PostgresStore;
 use thiserror::Error;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
+const DATABASE_URL: &str = "postgres://tellus:tellus@localhost:5432/tellus";
+
 const TOXIC: u32 = 13;
 const MAX_RESTARTS: NonZeroU32 = NonZeroU32::new(3).expect("3 is not zero");
 
@@ -32,8 +34,7 @@ const MAX_RESTARTS: NonZeroU32 = NonZeroU32::new(3).expect("3 is not zero");
 async fn main() -> anyhow::Result<()> {
     init_tracing();
 
-    let url = env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://tellus:tellus@localhost:5432/tellus".to_string());
+    let url = env::var("DATABASE_URL").unwrap_or_else(|_| DATABASE_URL.to_string());
     let pool = PgPool::connect(&url)
         .await
         .context("connection to PostgreSQL")?;

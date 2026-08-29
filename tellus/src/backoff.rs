@@ -43,8 +43,7 @@ impl Backoff {
         self.max
     }
 
-    /// Callers map their own attempt count onto a step: the restart path passes the restarts
-    /// already made.
+    /// The delay for the zero-based `step`.
     pub(crate) fn duration(self, step: u32) -> Duration {
         let factor = 1u32.checked_shl(step).unwrap_or(u32::MAX);
         self.min.saturating_mul(factor).min(self.max)
@@ -67,6 +66,7 @@ pub struct InvalidBackoff {
 
 #[cfg(feature = "serde")]
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct UncheckedBackoff {
     #[serde(with = "humantime_serde")]
     min: Duration,
@@ -134,5 +134,14 @@ mod tests {
         assert_eq!(backoff.max(), MAX);
 
         assert!(serde_json::from_str::<Backoff>(r#"{ "min": "3s", "max": "250ms" }"#).is_err());
+    }
+
+    /// A misspelled key must be an error, not a silently applied default.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn deserializing_rejects_unknown_fields() {
+        let backoff =
+            serde_json::from_str::<Backoff>(r#"{ "min": "250ms", "max": "3s", "mni": "1s" }"#);
+        assert!(backoff.is_err());
     }
 }

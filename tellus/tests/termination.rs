@@ -390,6 +390,7 @@ impl Actor for FailingWithPanickingState {
         &self,
         _: &ActorContext<Self::Message>,
         _: Incoming<Self::Message>,
+        // A bare `_` would drop, hence panic, at binding instead of on the `Err` return.
         _state: Self::State,
     ) -> Result<Control<Self::State>, Self::Error> {
         Err(Boom)

@@ -253,9 +253,9 @@ fn schema_version(row: &PgRow) -> Result<SchemaVersion, Error> {
         .map_err(|_| Error::SchemaVersionOutOfRange)
 }
 
-/// The primary key on `(entity_type, entity_id, seq_no)` turns two writers racing past the
-/// conditional check into a unique violation for the loser, hence 23505 is a conflict, not a
-/// store failure.
+// The primary key on `(entity_type, entity_id, seq_no)` turns two writers racing past the
+// conditional check into a unique violation for the loser, hence 23505 is a conflict, not a
+// store failure.
 fn is_unique_violation(error: &sqlx::Error) -> bool {
     matches!(error, sqlx::Error::Database(error) if error.code().as_deref() == Some("23505"))
 }

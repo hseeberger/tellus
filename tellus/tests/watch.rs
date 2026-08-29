@@ -314,8 +314,6 @@ enum RootMessage {
     WatchChild,
 }
 
-/// Watch the child up front, so that the flood of messages in the test cannot drop the
-/// registration itself.
 /// Count the reports it receives and, once the reporter it watches has terminated, report that
 /// count back to the test.
 struct Counter(mpsc::Sender<u32>);
