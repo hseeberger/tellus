@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788037531742,
+  "lastUpdate": 1788037533807,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1141,6 +1141,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 204812,
             "range": "± 6855",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "92fa3b15bc5d904aab4a8d95a1b7171117f55582",
+          "message": "Merge pull request #62 from hseeberger/refactor/harden-core-and-persistence\n\nrefactor: harden core and persistence guarantees",
+          "timestamp": "2026-08-29T23:01:57+02:00",
+          "tree_id": "91b0982e85d89aefa13f11991c36e87b39fe737d",
+          "url": "https://github.com/hseeberger/tellus/commit/92fa3b15bc5d904aab4a8d95a1b7171117f55582"
+        },
+        "date": 1788037533136,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3011305,
+            "range": "± 28573",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3004586,
+            "range": "± 24316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1763765,
+            "range": "± 6745",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 214631,
+            "range": "± 6350",
             "unit": "ns/iter"
           }
         ]
