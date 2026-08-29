@@ -41,27 +41,59 @@ async fn watch_after_terminated_still_signals() {
 }
 
 /// A terminated signal is never subject to `MailboxCapacity::Bounded`, so it is delivered even when
-/// the watcher's message mailbox is full and dropping messages.
-#[tokio::test]
+/// the watcher's message mailbox is full and dropping messages. The watcher is blocked in `receive`
+/// while the flood fills its single slot, so the mailbox is provably full rather than racing the
+/// drain, and the observer's signal proves the target has signaled all its watchers, the blocked
+/// root included, before it is unblocked. The count of flood messages the root did receive is what
+/// proves the mailbox was full and dropping throughout.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn terminated_signal_survives_a_full_mailbox() {
-    let (terminated_tx, _terminated_rx) = mpsc::channel(1);
-    let root = Watcher(terminated_tx);
+    let (unblock_tx, unblock_rx) = std::sync::mpsc::channel();
+    let (target_ref_tx, mut target_ref_rx) = mpsc::channel(1);
+    let (blocked_tx, mut blocked_rx) = mpsc::channel(1);
+    let (target_terminated_tx, mut target_terminated_rx) = mpsc::channel(1);
+    let (outcome_tx, mut outcome_rx) = mpsc::channel(1);
+
+    let root = BlockedFloodWatcher {
+        unblock_rx,
+        target_ref_tx,
+        blocked_tx,
+        target_terminated_tx,
+        outcome_tx,
+    };
     let config = ActorConfig::default().with_mailbox_capacity(BOUNDED_TO_ONE);
     let system = ActorSystem::with_config(root, config);
 
-    // Sent while the mailbox is still empty, hence not dropped.
-    system.root().tell(());
-
-    // The root's mailbox holds one message, so nearly all of these become dead letters.
-    for _ in 0..FLOOD_MESSAGES {
-        system.root().tell(());
-    }
-
-    assert_terminates(
-        system,
-        "terminated signal was lost behind a full message mailbox",
+    let target = recv(
+        &mut target_ref_rx,
+        "root did not hand out the target reference",
     )
     .await;
+
+    system.root().tell(FloodMessage::Block);
+    recv(&mut blocked_rx, "root did not block").await;
+
+    // The root is blocked, so the first of these fills its single slot and the rest are dropped.
+    for _ in 0..FLOOD_MESSAGES {
+        system.root().tell(FloodMessage::Flood);
+    }
+
+    target.tell(Stop);
+    recv(&mut target_terminated_rx, "target did not terminate").await;
+
+    unblock_tx.send(()).expect("unblock channel closed");
+
+    let received = recv(
+        &mut outcome_rx,
+        "root was not signaled about the terminated target",
+    )
+    .await;
+    assert_eq!(
+        received, 1,
+        "the bounded mailbox was not full during the flood"
+    );
+
+    assert_terminates(system, "actor system did not terminate").await;
 }
 
 /// A terminated signal must be ordered behind all messages the terminated actor has sent, i.e.
@@ -284,65 +316,6 @@ enum RootMessage {
 
 /// Watch the child up front, so that the flood of messages in the test cannot drop the
 /// registration itself.
-struct Watcher(mpsc::Sender<()>);
-
-impl Actor for Watcher {
-    type Message = ();
-    type State = ActorRef<()>;
-    type Error = Infallible;
-
-    fn init(&self, context: &ActorContext<Self::Message>) -> Result<Self::State, Self::Error> {
-        let child = context.spawn(Child(self.0.clone()));
-        context.watch(&child);
-        Ok(child)
-    }
-
-    fn receive(
-        &self,
-        _: &ActorContext<Self::Message>,
-        incoming: Incoming<Self::Message>,
-        state: Self::State,
-    ) -> Result<Control<Self::State>, Self::Error> {
-        match incoming {
-            Incoming::Message(()) => {
-                state.tell(());
-                Ok(Control::Continue(state))
-            }
-
-            Incoming::Terminated(_) => Ok(Control::Stop),
-        }
-    }
-}
-
-struct Child(mpsc::Sender<()>);
-
-impl Actor for Child {
-    type Message = ();
-    type State = Terminated;
-    type Error = Infallible;
-
-    fn init(&self, _: &ActorContext<Self::Message>) -> Result<Self::State, Self::Error> {
-        Ok(Terminated(self.0.clone()))
-    }
-
-    fn receive(
-        &self,
-        _: &ActorContext<Self::Message>,
-        _: Incoming<Self::Message>,
-        _: Self::State,
-    ) -> Result<Control<Self::State>, Self::Error> {
-        Ok(Control::Stop)
-    }
-}
-
-struct Terminated(mpsc::Sender<()>);
-
-impl Drop for Terminated {
-    fn drop(&mut self) {
-        let _ = self.0.try_send(());
-    }
-}
-
 /// Count the reports it receives and, once the reporter it watches has terminated, report that
 /// count back to the test.
 struct Counter(mpsc::Sender<u32>);
@@ -712,6 +685,67 @@ impl Actor for BlockedUnwatcher {
 enum BlockedMessage {
     Block,
     Probe,
+}
+
+/// Block in `receive` on `Block` until the test unblocks it, so the flood it is sent meanwhile
+/// fills the bounded mailbox and stays there: the target's terminated signal is enqueued into a
+/// full mailbox. Count the flood messages actually received and report that count once the signal
+/// arrives, which is what proves the mailbox was full and dropping. The blocking wait must run
+/// under `block_in_place`, else it strands whatever task sits in this worker's LIFO slot.
+struct BlockedFloodWatcher {
+    unblock_rx: std::sync::mpsc::Receiver<()>,
+    target_ref_tx: mpsc::Sender<ActorRef<Stop>>,
+    blocked_tx: mpsc::Sender<()>,
+    target_terminated_tx: mpsc::Sender<()>,
+    outcome_tx: mpsc::Sender<u32>,
+}
+
+impl Actor for BlockedFloodWatcher {
+    type Message = FloodMessage;
+    type State = (ActorRef<Stop>, u32);
+    type Error = Infallible;
+
+    fn init(&self, context: &ActorContext<Self::Message>) -> Result<Self::State, Self::Error> {
+        let target = context.spawn(Target);
+        context.watch(&target);
+        context.spawn(Observer {
+            target: target.clone(),
+            terminated_tx: self.target_terminated_tx.clone(),
+        });
+        let _ = self.target_ref_tx.try_send(target.clone());
+        Ok((target, 0))
+    }
+
+    fn receive(
+        &self,
+        _: &ActorContext<Self::Message>,
+        incoming: Incoming<Self::Message>,
+        (target, received): Self::State,
+    ) -> Result<Control<Self::State>, Self::Error> {
+        match incoming {
+            Incoming::Message(FloodMessage::Block) => {
+                let _ = self.blocked_tx.try_send(());
+                block_in_place(|| {
+                    self.unblock_rx
+                        .recv_timeout(TIMEOUT)
+                        .expect("unblock channel closed or timed out")
+                });
+                Ok(Control::Continue((target, received)))
+            }
+
+            Incoming::Message(FloodMessage::Flood) => Ok(Control::Continue((target, received + 1))),
+
+            Incoming::Terminated(_) => {
+                let _ = self.outcome_tx.try_send(received);
+                Ok(Control::Stop)
+            }
+        }
+    }
+}
+
+enum FloodMessage {
+    Block,
+    Flood,
 }
 
 /// Watch the target and report its termination to the test, proving that the target's terminated

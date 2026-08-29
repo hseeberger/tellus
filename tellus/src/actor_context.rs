@@ -227,7 +227,7 @@ where
     A::State: Send + 'static,
 {
     let actor_id = ActorId::new();
-    let (self_ref, mailbox) = SelfRef::new(actor_id, config.mailbox_capacity);
+    let (self_ref, mut mailbox) = SelfRef::new(actor_id, config.mailbox_capacity);
     let actor_ref = self_ref.actor_ref().clone();
 
     task::spawn(async move {
@@ -356,21 +356,14 @@ where
 
     context.stop_children().await;
 
-    // Again check if stopped by parent to avoid finding out after restarting.
-    let stopped = if delay.is_zero() {
-        parent_stopping_rx.has_changed().unwrap_or(true)
-    } else {
-        select! {
-            biased;
-            _ = stopped_by_parent.as_mut() => true,
-            _ = sleep(delay) => false,
-        }
-    };
-    if stopped {
-        debug!(%actor_id, "stopping, because parent stopped this actor");
-    }
+    match await_backoff(delay, parent_stopping_rx, stopped_by_parent.as_mut()).await {
+        Interrupted::No => true,
 
-    !stopped
+        Interrupted::StoppedByParent => {
+            debug!(%actor_id, "stopping, because parent stopped this actor");
+            false
+        }
+    }
 }
 
 /// The state must already have been dropped by the caller. The queued messages are moved out and
@@ -421,6 +414,12 @@ enum Restart {
     NotConfigured,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum Interrupted {
+    No,
+    StoppedByParent,
+}
+
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
 fn receive_incoming<A>(
     actor_id: ActorId,
@@ -459,17 +458,96 @@ fn next_restart(
     Restart::After(delay)
 }
 
+async fn await_backoff<F>(
+    delay: Duration,
+    parent_stopping_rx: &watch::Receiver<()>,
+    stopped_by_parent: Pin<&mut F>,
+) -> Interrupted
+where
+    F: Future,
+{
+    // Again check if stopped by parent to avoid finding out after restarting.
+    let stopped = if delay.is_zero() {
+        parent_stopping_rx.has_changed().unwrap_or(true)
+    } else {
+        select! {
+            biased;
+            _ = stopped_by_parent => true,
+            _ = sleep(delay) => false,
+        }
+    };
+
+    if stopped {
+        Interrupted::StoppedByParent
+    } else {
+        Interrupted::No
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         Backoff, RestartPolicy, SupervisionStrategy,
-        actor_context::{PanicPayload, Restart, next_restart},
+        actor_context::{Interrupted, PanicPayload, Restart, await_backoff, next_restart},
     };
-    use std::{num::NonZeroU32, time::Duration};
-    use tokio::time::Instant;
+    use std::{future, num::NonZeroU32, pin::pin, time::Duration};
+    use tokio::{sync::watch, time::Instant};
 
     const MIN: Duration = Duration::from_millis(250);
     const MAX: Duration = Duration::from_secs(1);
+
+    #[tokio::test(start_paused = true)]
+    async fn a_backoff_elapses_uninterrupted() {
+        let (_parent_stopping_tx, parent_stopping_rx) = watch::channel(());
+
+        let interrupted = await_backoff(
+            Duration::from_secs(1),
+            &parent_stopping_rx,
+            pin!(future::pending::<()>()),
+        )
+        .await;
+
+        assert_eq!(interrupted, Interrupted::No);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_parent_stop_beats_the_backoff() {
+        let (_parent_stopping_tx, parent_stopping_rx) = watch::channel(());
+
+        let interrupted = await_backoff(
+            Duration::from_secs(1),
+            &parent_stopping_rx,
+            pin!(future::ready(())),
+        )
+        .await;
+
+        assert_eq!(interrupted, Interrupted::StoppedByParent);
+    }
+
+    /// A zero backoff never awaits the stop future, so the parent stop is caught by the second
+    /// check rather than by the race.
+    #[tokio::test(start_paused = true)]
+    async fn a_zero_backoff_still_checks_the_parent() {
+        let (parent_stopping_tx, parent_stopping_rx) = watch::channel(());
+
+        let interrupted = await_backoff(
+            Duration::ZERO,
+            &parent_stopping_rx,
+            pin!(future::pending::<()>()),
+        )
+        .await;
+        assert_eq!(interrupted, Interrupted::No);
+
+        parent_stopping_tx.send(()).expect("receiver is alive");
+
+        let interrupted = await_backoff(
+            Duration::ZERO,
+            &parent_stopping_rx,
+            pin!(future::pending::<()>()),
+        )
+        .await;
+        assert_eq!(interrupted, Interrupted::StoppedByParent);
+    }
 
     /// A panic payload is a `&'static str` for a literal panic and a `String` for a formatted one,
     /// so both must format as the message itself; anything else is named as such rather than

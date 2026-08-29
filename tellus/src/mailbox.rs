@@ -54,8 +54,9 @@ pub(crate) struct Mailbox<M> {
 }
 
 impl<M> Mailbox<M> {
+    /// One consumer per mailbox: `&mut self` enforces it, though the body would allow `&self`.
     #[cfg_attr(feature = "hotpath", hotpath::measure)]
-    pub(crate) async fn recv(&self) -> Option<Incoming<M>> {
+    pub(crate) async fn recv(&mut self) -> Option<Incoming<M>> {
         let incoming = self.incoming_rx.recv_async().await.ok()?;
         if matches!(incoming, Incoming::Message(_)) {
             self.quota.unreserve();
@@ -212,7 +213,8 @@ mod tests {
         ActorId, Incoming, MailboxCapacity,
         mailbox::{SendError, Watcher, make_mailbox},
     };
-    use std::num::NonZeroUsize;
+    use std::{num::NonZeroUsize, time::Duration};
+    use tokio::time::timeout;
 
     #[test]
     fn unbounded_never_fills() {
@@ -274,12 +276,41 @@ mod tests {
 
     #[tokio::test]
     async fn receiving_a_message_frees_capacity() {
-        let (mailbox_handle, mailbox) =
+        let (mailbox_handle, mut mailbox) =
             make_mailbox::<()>(MailboxCapacity::Bounded(NonZeroUsize::MIN));
 
         assert!(mailbox_handle.try_send_message(()).is_ok());
         assert!(mailbox.recv().await.is_some());
         assert!(mailbox_handle.try_send_message(()).is_ok());
+    }
+
+    #[tokio::test]
+    async fn recv_drains_queued_messages_before_ending() {
+        let (mailbox_handle, mut mailbox) = make_mailbox::<u32>(MailboxCapacity::Unbounded);
+
+        assert!(mailbox_handle.try_send_message(1).is_ok());
+        assert!(mailbox_handle.try_send_message(2).is_ok());
+        drop(mailbox_handle);
+
+        assert!(matches!(mailbox.recv().await, Some(Incoming::Message(1))));
+        assert!(matches!(mailbox.recv().await, Some(Incoming::Message(2))));
+        assert!(mailbox.recv().await.is_none());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn recv_ends_only_once_every_handle_is_dropped() {
+        let (mailbox_handle, mut mailbox) = make_mailbox::<u32>(MailboxCapacity::Unbounded);
+        let clone = mailbox_handle.clone();
+        drop(mailbox_handle);
+
+        assert!(
+            timeout(Duration::from_secs(5), mailbox.recv())
+                .await
+                .is_err()
+        );
+
+        drop(clone);
+        assert!(mailbox.recv().await.is_none());
     }
 
     #[test]
@@ -328,7 +359,7 @@ mod tests {
 
     #[tokio::test]
     async fn terminated_signals_ignore_capacity() {
-        let (mailbox_handle, mailbox) =
+        let (mailbox_handle, mut mailbox) =
             make_mailbox::<()>(MailboxCapacity::Bounded(NonZeroUsize::MIN));
         let terminated_sink = mailbox_handle.terminated_sink();
 
@@ -414,7 +445,7 @@ mod tests {
     /// error once that mailbox is gone, i.e. the watching actor itself has terminated.
     #[tokio::test]
     async fn watcher_sends_terminated_into_watching_mailbox() {
-        let (mailbox_handle, mailbox) = make_mailbox::<()>(MailboxCapacity::Unbounded);
+        let (mailbox_handle, mut mailbox) = make_mailbox::<()>(MailboxCapacity::Unbounded);
         let watcher = Watcher::new(ActorId::new(), mailbox_handle.terminated_sink());
 
         let actor_id = ActorId::new();

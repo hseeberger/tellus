@@ -65,7 +65,7 @@ impl EventStore for PostgresStore {
                 .bind(id.entity_id())
                 .fetch_one(&self.pool)
                 .await
-                .map_err(|error| AppendError::Store(Error::Sqlx(error)))?;
+                .map_err(Error::Sqlx)?;
 
             return if actual == next_seq_no {
                 Ok(())
@@ -79,7 +79,12 @@ impl EventStore for PostgresStore {
         let mut schema_versions = Vec::with_capacity(events.len());
         let mut payloads = Vec::with_capacity(events.len());
         for (n, event) in events.into_iter().enumerate() {
-            seq_nos.push(next_seq_no + n as i64);
+            let seq_no = i64::try_from(n)
+                .ok()
+                .and_then(|n| next_seq_no.checked_add(n))
+                .ok_or(Error::SeqNoOutOfRange)?;
+
+            seq_nos.push(seq_no);
             manifests.push(event.manifest);
             schema_versions.push(i32::from(event.schema_version.as_u16()));
             payloads.push(event.payload);

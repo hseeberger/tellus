@@ -88,10 +88,12 @@ async fn init_may_self_send_without_blocking() {
 /// actor system would never terminate.
 #[tokio::test]
 async fn panicking_actor_destructor_still_terminates_system() {
-    let system = ActorSystem::new(PanickingActor);
+    let (dropped_tx, mut dropped_rx) = mpsc::channel(1);
+    let system = ActorSystem::new(PanickingActor(dropped_tx));
 
     system.root().tell(());
 
+    recv(&mut dropped_rx, "actor destructor did not run").await;
     assert_terminates(system).await;
 }
 
@@ -294,10 +296,11 @@ enum SelfSend {
     Done,
 }
 
-struct PanickingActor;
+struct PanickingActor(mpsc::Sender<()>);
 
 impl Drop for PanickingActor {
     fn drop(&mut self) {
+        let _ = self.0.try_send(());
         panic!("panicking actor destructor");
     }
 }
