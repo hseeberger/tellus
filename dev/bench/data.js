@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788078647805,
+  "lastUpdate": 1788078649299,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1249,6 +1249,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 214631,
             "range": "± 6350",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b55230f8f5224e73fdd7e316b20a4ef3807f4ab",
+          "message": "Merge pull request #63 from hseeberger/fix/backoff-recovery-bench\n\nfix: harden backoff config, recovery drop and bench sizing",
+          "timestamp": "2026-08-30T10:27:24+02:00",
+          "tree_id": "752ffdbbab3300c992bee0982ffe325d4e4010c1",
+          "url": "https://github.com/hseeberger/tellus/commit/8b55230f8f5224e73fdd7e316b20a4ef3807f4ab"
+        },
+        "date": 1788078649027,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2430662,
+            "range": "± 5874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2422025,
+            "range": "± 150713",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1195966,
+            "range": "± 3730",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 142685,
+            "range": "± 4070",
             "unit": "ns/iter"
           }
         ]
