@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788037533807,
+  "lastUpdate": 1788078647805,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -659,6 +659,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3474352,
             "range": "± 26527",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b55230f8f5224e73fdd7e316b20a4ef3807f4ab",
+          "message": "Merge pull request #63 from hseeberger/fix/backoff-recovery-bench\n\nfix: harden backoff config, recovery drop and bench sizing",
+          "timestamp": "2026-08-30T10:27:24+02:00",
+          "tree_id": "752ffdbbab3300c992bee0982ffe325d4e4010c1",
+          "url": "https://github.com/hseeberger/tellus/commit/8b55230f8f5224e73fdd7e316b20a4ef3807f4ab"
+        },
+        "date": 1788078647353,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 8990546,
+            "range": "± 97135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 9533760,
+            "range": "± 101725",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 518439,
+            "range": "± 7084",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 607607,
+            "range": "± 4488",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 4053910,
+            "range": "± 70016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 2797214,
+            "range": "± 13183",
             "unit": "ns/iter"
           }
         ]
