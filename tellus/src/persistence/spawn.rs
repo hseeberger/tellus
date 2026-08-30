@@ -202,15 +202,18 @@ where
         let mut restarts = 0;
 
         'run: loop {
+            // A panicking state drop on cancellation must not unwind past `terminate`!
+            let mut recovering = Box::pin(recover(actor_id, &actor, &persistence));
             let recovered = select! {
                 biased;
 
                 _ = &mut stopped_by_parent => {
                     debug!(%actor_id, "stopping, because parent stopped this actor");
+                    drop_containing_panic(actor_id, VALUES_FAILED_TO_DROP, recovering);
                     break 'run;
                 }
 
-                recovered = recover(actor_id, &actor, &persistence) => recovered,
+                recovered = &mut recovering => recovered,
             };
             let mut up_since = None;
 

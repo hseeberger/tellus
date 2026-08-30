@@ -32,7 +32,7 @@ impl<M> ActorRef<M> {
     }
 
     /// Send a message to the actor represented by this reference without blocking. If the actor
-    /// has terminated, or if its mailbox is full for [crate::MailboxCapacity::Bounded], the message
+    /// has terminated, or if its mailbox is full for [MailboxCapacity::Bounded], the message
     /// is dropped and logged as a dead letter. Also, even if the message is delivered to the
     /// actor, it might stop before processing it.
     #[cfg_attr(feature = "hotpath", hotpath::measure)]

@@ -2,18 +2,17 @@
 //!
 //! - `flood`: the bench thread floods a single counting actor, with an unbounded mailbox and with a
 //!   bounded one whose capacity is large enough that no message is ever dropped.
-//! - `ping_pong`: pairs of actors play ping-pong, one pair and one pair per core.
-//! - `fan_out`: the root actor sends messages round-robin to its workers, one worker per core and
-//!   four workers per core.
+//! - `ping_pong`: pairs of actors play ping-pong, one pair and one pair per worker thread.
+//! - `fan_out`: the root actor sends messages round-robin to its workers, one worker and four
+//!   workers per worker thread.
 //!
-//! All benchmarks run on a Tokio runtime with a fixed worker thread count, so measurements do not
-//! depend on the host's core count.
+//! All benchmarks run on a Tokio runtime with a fixed worker thread count, which also sizes the
+//! workloads, so measurements do not depend on the host's core count.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use std::{
     convert::Infallible,
     num::NonZeroUsize,
-    thread,
     time::{Duration, Instant},
 };
 use tellus::{
@@ -69,7 +68,7 @@ fn ping_pong(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("ping_pong");
 
-    for pairs in [1, available_parallelism()] {
+    for pairs in [1, WORKER_THREADS] {
         group.throughput(Throughput::Elements((pairs * PING_PONG_ROUNDS * 2) as u64));
 
         group.bench_function(BenchmarkId::new("pairs", pairs), |b| {
@@ -98,7 +97,7 @@ fn fan_out(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("fan_out");
 
-    for workers in [available_parallelism(), 4 * available_parallelism()] {
+    for workers in [WORKER_THREADS, 4 * WORKER_THREADS] {
         let share = FAN_OUT_MESSAGES / workers;
         group.throughput(Throughput::Elements((share * workers) as u64));
 
@@ -149,12 +148,6 @@ where
     }
 
     elapsed
-}
-
-fn available_parallelism() -> usize {
-    thread::available_parallelism()
-        .expect("available parallelism can be determined")
-        .get()
 }
 
 fn next_remaining(remaining: usize) -> Option<usize> {

@@ -176,8 +176,7 @@ impl Display for PanicPayload<'_> {
 }
 
 // A macro, not an async fn: the run loops' message hot path must not pay for a nested state
-// machine. A terminated signal whose sender is no longer watched is dropped here, before the
-// actor ever sees it.
+// machine.
 macro_rules! next_incoming {
     ($actor_id:expr, $mailbox:expr, $context:expr, $stopped_by_parent:expr) => {
         'next_incoming: loop {
@@ -466,7 +465,7 @@ async fn await_backoff<F>(
 where
     F: Future,
 {
-    // Again check if stopped by parent to avoid finding out after restarting.
+    // A zero delay skips the select!, so the parent stop must be probed here.
     let stopped = if delay.is_zero() {
         parent_stopping_rx.has_changed().unwrap_or(true)
     } else {

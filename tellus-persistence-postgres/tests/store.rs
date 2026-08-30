@@ -70,12 +70,13 @@ async fn a_counter_survives_incarnations() {
         },
         Persistence::new(store.clone()),
     );
-    for _ in 0..3 {
-        let count = timeout(TIMEOUT, system.root().ask(TIMEOUT, Command::Increment))
+    for expected in 1..=3 {
+        let count = system
+            .root()
+            .ask(TIMEOUT, Command::Increment)
             .await
-            .expect("no reply in time")
             .expect("no reply to increment");
-        assert!(count >= 1);
+        assert_eq!(count, expected);
     }
     system.root().tell(Command::Stop);
     timeout(TIMEOUT, system.terminated())
@@ -96,47 +97,6 @@ async fn a_counter_survives_incarnations() {
         .await
         .expect("second incarnation did not terminate")
         .expect("watching the root actor failed");
-}
-
-async fn store() -> (PostgresStore, ContainerAsync<Postgres>) {
-    let postgres = COMPOSE.service("postgres");
-
-    let (user, password, dbname) = (
-        postgres.env("POSTGRES_USER"),
-        postgres.env("POSTGRES_PASSWORD"),
-        postgres.env("POSTGRES_DB"),
-    );
-
-    let container = Postgres::default()
-        .with_db_name(dbname)
-        .with_user(user)
-        .with_password(password)
-        .with_tag(postgres.image().tag())
-        .start()
-        .await
-        .expect("the PostgreSQL container starts");
-
-    let host = container.get_host().await.expect("the host is known");
-    let port = container
-        .get_host_port_ipv4(5432)
-        .await
-        .expect("the mapped port is known");
-    let url = format!("postgres://{user}:{password}@{host}:{port}/{dbname}");
-    let pool = PgPool::connect(&url).await.expect("the pool connects");
-
-    let store = PostgresStore::new(pool);
-    store.migrate().await.expect("the migrations run");
-
-    (store, container)
-}
-
-fn unique_entity_id() -> String {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("the current time is after the Unix epoch")
-        .as_nanos();
-
-    format!("counter-{nanos}")
 }
 
 struct Counter {
@@ -196,4 +156,45 @@ struct Increased;
 impl Versioned for Increased {
     const MANIFEST: &'static str = "increased";
     const VERSION: SchemaVersion = SchemaVersion::new(1);
+}
+
+async fn store() -> (PostgresStore, ContainerAsync<Postgres>) {
+    let postgres = COMPOSE.service("postgres");
+
+    let (user, password, dbname) = (
+        postgres.env("POSTGRES_USER"),
+        postgres.env("POSTGRES_PASSWORD"),
+        postgres.env("POSTGRES_DB"),
+    );
+
+    let container = Postgres::default()
+        .with_db_name(dbname)
+        .with_user(user)
+        .with_password(password)
+        .with_tag(postgres.image().tag())
+        .start()
+        .await
+        .expect("the PostgreSQL container starts");
+
+    let host = container.get_host().await.expect("the host is known");
+    let port = container
+        .get_host_port_ipv4(5432)
+        .await
+        .expect("the mapped port is known");
+    let url = format!("postgres://{user}:{password}@{host}:{port}/{dbname}");
+    let pool = PgPool::connect(&url).await.expect("the pool connects");
+
+    let store = PostgresStore::new(pool);
+    store.migrate().await.expect("the migrations run");
+
+    (store, container)
+}
+
+fn unique_entity_id() -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("the current time is after the Unix epoch")
+        .as_nanos();
+
+    format!("counter-{nanos}")
 }

@@ -186,7 +186,7 @@ impl EventSourced for Counter {
     ) -> Result<Effect<Self>, Self::Error> {
         let effect = if *count >= self.events {
             Effect::stop()
-        } else if count + 1 == self.events {
+        } else if *count + 1 == self.events {
             Effect::persist(Increased).and_stop()
         } else {
             Effect::persist(Increased)
