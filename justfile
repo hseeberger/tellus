@@ -6,14 +6,16 @@ nightly := `rustc --version | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sed 's/^/n
 # bench-report flags it.
 bench_regression_threshold := "0.15"
 
+# The feature powerset for `tellus`, minus what cargo-hack cannot know: `hotpath` is orthogonal
+# instrumentation, and `persistence-tests` is an implication, not a combination.
+powerset := "--feature-powerset --exclude-features hotpath,hotpath-alloc " + \
+    "--mutually-exclusive-features persistence,persistence-tests"
+
 check:
-    cargo check -p tellus                      --all-targets
-    cargo check -p tellus                      --all-targets --features serde
-    cargo check -p tellus                      --all-targets --features hotpath
-    cargo check -p tellus                      --all-targets --features persistence
-    cargo check -p tellus                      --all-targets --features persistence-tests
-    cargo check -p tellus                      --all-targets --all-features
-    cargo check -p tellus-persistence-postgres --all-targets
+    cargo hack check -p tellus                      --all-targets {{ powerset }}
+    cargo check      -p tellus                      --all-targets --features hotpath
+    cargo check      -p tellus                      --all-targets --all-features
+    cargo check      -p tellus-persistence-postgres --all-targets
 
 fix:
     cargo fix --all-targets --allow-dirty --allow-staged
@@ -26,13 +28,10 @@ fmt-check:
     cargo +{{ nightly }} fmt --check
 
 lint:
-    cargo clippy -p tellus                      --all-targets --no-deps                              -- -D warnings
-    cargo clippy -p tellus                      --all-targets --no-deps --features serde             -- -D warnings
-    cargo clippy -p tellus                      --all-targets --no-deps --features hotpath           -- -D warnings
-    cargo clippy -p tellus                      --all-targets --no-deps --features persistence       -- -D warnings
-    cargo clippy -p tellus                      --all-targets --no-deps --features persistence-tests -- -D warnings
-    cargo clippy -p tellus                      --all-targets --no-deps --all-features               -- -D warnings
-    cargo clippy -p tellus-persistence-postgres --all-targets --no-deps                              -- -D warnings
+    cargo hack clippy -p tellus                      --all-targets --no-deps {{ powerset }}   -- -D warnings
+    cargo clippy      -p tellus                      --all-targets --no-deps --features hotpath -- -D warnings
+    cargo clippy      -p tellus                      --all-targets --no-deps --all-features     -- -D warnings
+    cargo clippy      -p tellus-persistence-postgres --all-targets --no-deps                    -- -D warnings
 
 lint-fix:
     cargo clippy --all-targets --no-deps --allow-dirty --allow-staged --fix
