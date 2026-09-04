@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788524742208,
+  "lastUpdate": 1788524744748,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1573,6 +1573,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 141570,
             "range": "± 3335",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c008766f415ed9c4848b94b133c591e936ce451d",
+          "message": "Merge pull request #67 from hseeberger/build/cargo-hack\n\nbuild: drive the check and lint feature matrix with cargo-hack",
+          "timestamp": "2026-09-04T14:22:16+02:00",
+          "tree_id": "f7c785cc5e1f96489bbbdd78fbc2b8cce6c595cc",
+          "url": "https://github.com/hseeberger/tellus/commit/c008766f415ed9c4848b94b133c591e936ce451d"
+        },
+        "date": 1788524744267,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2830831,
+            "range": "± 132233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2538153,
+            "range": "± 65590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 957126,
+            "range": "± 29583",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 132039,
+            "range": "± 5776",
             "unit": "ns/iter"
           }
         ]
