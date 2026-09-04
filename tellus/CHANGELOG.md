@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2](https://github.com/hseeberger/tellus/compare/tellus-v0.2.1...tellus-v0.2.2) - 2026-09-04
+
+### Other
+
+- update Cargo.toml dependencies
+
 ## [0.2.1](https://github.com/hseeberger/tellus/compare/tellus-v0.2.0...tellus-v0.2.1) - 2026-08-30
 
 ### Fixed
