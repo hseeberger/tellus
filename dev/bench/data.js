@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788291788349,
+  "lastUpdate": 1788524742208,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -839,6 +839,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 2806349,
             "range": "± 13454",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c008766f415ed9c4848b94b133c591e936ce451d",
+          "message": "Merge pull request #67 from hseeberger/build/cargo-hack\n\nbuild: drive the check and lint feature matrix with cargo-hack",
+          "timestamp": "2026-09-04T14:22:16+02:00",
+          "tree_id": "f7c785cc5e1f96489bbbdd78fbc2b8cce6c595cc",
+          "url": "https://github.com/hseeberger/tellus/commit/c008766f415ed9c4848b94b133c591e936ce451d"
+        },
+        "date": 1788524741445,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 24497342,
+            "range": "± 5161120",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 26205715,
+            "range": "± 229481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 752062,
+            "range": "± 31205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 842727,
+            "range": "± 17235",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 8080741,
+            "range": "± 421711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 6438358,
+            "range": "± 285346",
             "unit": "ns/iter"
           }
         ]
