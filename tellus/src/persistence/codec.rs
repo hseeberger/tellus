@@ -4,7 +4,8 @@ use thiserror::Error;
 
 /// Encodes events and snapshots into the payload bytes handed to the stores and decodes them
 /// back. A codec must be self-describing enough that its output can be decoded without external
-/// schema knowledge, and the codec reading a stream must be the one which wrote it.
+/// schema knowledge. No stored record names the codec which wrote its payload, so a codec cannot
+/// be changed once events have been written.
 pub trait Codec {
     /// Encode the given value into payload bytes.
     fn encode<T>(&self, value: &T) -> Result<Vec<u8>, EncodeError>
@@ -28,7 +29,6 @@ impl Codec for Cbor {
     {
         let mut payload = Vec::new();
         ciborium::into_writer(value, &mut payload).map_err(EncodeError::new)?;
-
         Ok(payload)
     }
 
@@ -66,7 +66,7 @@ impl Codec for Json {
 pub struct EncodeError(#[source] Box<dyn Error + Send + Sync>);
 
 impl EncodeError {
-    /// Wrap a codec's underlying error.
+    /// Wrap the codec's own error as the [source](Error::source).
     pub fn new<E>(error: E) -> Self
     where
         E: Into<Box<dyn Error + Send + Sync>>,
@@ -83,7 +83,7 @@ impl EncodeError {
 pub struct PayloadError(#[source] Box<dyn Error + Send + Sync>);
 
 impl PayloadError {
-    /// Wrap a codec's underlying error.
+    /// Wrap the codec's own error as the [source](Error::source).
     pub fn new<E>(error: E) -> Self
     where
         E: Into<Box<dyn Error + Send + Sync>>,
@@ -136,8 +136,8 @@ mod tests {
         assert!(text.contains("\"tellus\""), "got {text}");
     }
 
-    /// The trait requires that the codec reading a stream is the one which wrote it; a payload
-    /// from the other codec must fail rather than decode into a wrong value.
+    /// Nothing names the codec which wrote a payload, so a payload from the other codec must
+    /// fail rather than decode into a wrong value.
     #[test]
     fn a_payload_of_another_codec_does_not_decode() {
         let payload = Json.encode(&value()).expect("the value is JSON encodable");

@@ -26,9 +26,10 @@ pub trait Actor {
     /// Create the initial state, possibly spawning child actors or sending messages.
     ///
     /// Returning an error or panicking makes the configured [SupervisionStrategy] decide what
-    /// happens, for the first initialization at spawn as well as on the restart path: under
-    /// [SupervisionStrategy::Stop] the actor stops and its watchers get an [Incoming::Terminated]
-    /// signal, under [SupervisionStrategy::Restart] the initialization is retried with backoff.
+    /// happens. This holds for the first initialization at spawn as well as on the restart path.
+    /// Under [SupervisionStrategy::Stop] the actor stops and its watchers get an
+    /// [Incoming::Terminated] signal, under [SupervisionStrategy::Restart] the initialization is
+    /// retried with backoff.
     ///
     /// [SupervisionStrategy]: crate::SupervisionStrategy
     /// [SupervisionStrategy::Stop]: crate::SupervisionStrategy::Stop
@@ -64,7 +65,7 @@ pub enum Nothing {}
 #[cfg(feature = "persistence")]
 impl Versioned for Nothing {
     const MANIFEST: &'static str = "nothing";
-    const VERSION: SchemaVersion = SchemaVersion::new(0);
+    const VERSION: SchemaVersion = SchemaVersion::new(1);
 }
 
 #[cfg(feature = "persistence")]
@@ -97,7 +98,7 @@ pub enum Incoming<M> {
     Message(M),
 
     /// The signal that a watched actor has terminated. It is ordered behind all messages that actor
-    /// has delivered to this one, hence receiving it proves that this actor has seen every message
+    /// has delivered to this one. Receiving it hence proves that this actor has seen every message
     /// from the terminated one it will ever see: each arrived before the signal or was dropped as a
     /// dead letter.
     Terminated(ActorId),

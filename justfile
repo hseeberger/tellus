@@ -7,14 +7,17 @@ nightly := `rustc --version | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sed 's/^/n
 bench_regression_threshold := "0.15"
 
 # The feature powerset for `tellus`, minus what cargo-hack cannot know: `hotpath` is orthogonal
-# instrumentation, and `persistence-tests` is an implication, not a combination.
+# instrumentation, and these two pairs are implications, not combinations.
 powerset := "--feature-powerset --exclude-features hotpath,hotpath-alloc " + \
-    "--mutually-exclusive-features persistence,persistence-tests"
+    "--mutually-exclusive-features persistence,persistence-tests " + \
+    "--mutually-exclusive-features cluster,cluster-dev"
 
 check:
     cargo hack check -p tellus                      --all-targets {{ powerset }}
     cargo check      -p tellus                      --all-targets --features hotpath
     cargo check      -p tellus                      --all-targets --all-features
+    cargo hack check -p tellus-bootstrap-dns        --all-targets --feature-powerset
+    cargo hack check -p tellus-bootstrap-k8s        --all-targets --feature-powerset
     cargo check      -p tellus-persistence-postgres --all-targets
 
 fix:
@@ -31,6 +34,8 @@ lint:
     cargo hack clippy -p tellus                      --all-targets --no-deps {{ powerset }}   -- -D warnings
     cargo clippy      -p tellus                      --all-targets --no-deps --features hotpath -- -D warnings
     cargo clippy      -p tellus                      --all-targets --no-deps --all-features     -- -D warnings
+    cargo hack clippy -p tellus-bootstrap-dns        --all-targets --no-deps --feature-powerset -- -D warnings
+    cargo hack clippy -p tellus-bootstrap-k8s        --all-targets --no-deps --feature-powerset -- -D warnings
     cargo clippy      -p tellus-persistence-postgres --all-targets --no-deps                    -- -D warnings
 
 lint-fix:
@@ -41,11 +46,17 @@ test:
     cargo test -p tellus                      --features serde
     cargo test -p tellus                      --features persistence
     cargo test -p tellus                      --features persistence-tests
+    cargo test -p tellus                      --features cluster-dev
+    cargo test -p tellus                      --features cluster-dev,serde
     cargo test -p tellus                      --all-features
+    cargo test -p tellus-bootstrap-dns
+    cargo test -p tellus-bootstrap-dns        --all-features
+    cargo test -p tellus-bootstrap-k8s
+    cargo test -p tellus-bootstrap-k8s        --all-features
     cargo test -p tellus-persistence-postgres
 
 doc:
-    RUSTDOCFLAGS="-D warnings" cargo +{{ nightly }} doc --no-deps --all-features
+    RUSTDOCFLAGS="-D warnings --cfg docsrs" cargo +{{ nightly }} doc --no-deps --all-features
 
 all: check fmt lint test doc
 
@@ -57,6 +68,12 @@ run-examples-counter:
 
 run-examples-scatter-gather:
     RUST_LOG=tellus=debug cargo run -p tellus --example scatter_gather
+
+run-examples-remote-scatter-gather:
+    RUST_LOG=tellus=debug cargo run -p tellus --features cluster-dev --example remote_scatter_gather
+
+run-examples-cluster:
+    RUST_LOG=tellus=debug cargo run -p tellus --features cluster-dev --example cluster
 
 run-examples-supervision:
     RUST_LOG=tellus=debug cargo run -p tellus --example supervision
@@ -96,6 +113,9 @@ bench-bencher:
 
 bench-persistence-bencher:
     cargo bench -p tellus --features persistence --bench persistence -- --output-format bencher
+
+bench-cluster:
+    TELLUS_REMOTING_ROLE=bench cargo test -p tellus --test cluster --features cluster-dev --release
 
 bench-report:
     #!/usr/bin/env bash
@@ -184,3 +204,79 @@ comparison-check:
 
 comparison-lint:
     cargo clippy -p tellus-comparison --all-targets --no-deps -- -D warnings
+
+cluster-demo-up:
+    docker compose -f tellus-cluster-demo/docker-compose.yaml up -d --build
+
+cluster-demo-down:
+    docker compose -f tellus-cluster-demo/docker-compose.yaml down -v
+
+cluster-demo-logs *args:
+    docker compose -f tellus-cluster-demo/docker-compose.yaml logs -f {{ args }}
+
+cluster-demo-status:
+    curl -s localhost:8080/cluster | jq
+    curl -s localhost:8081/status | jq
+
+cluster-demo-violations:
+    curl -s localhost:8081/violations | jq
+
+# `dns` or `k8s`: just parameters are positional, so this is `just cluster-demo-k8s-up k8s`.
+cluster-demo-k8s-up discovery="dns":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ discovery }}" in
+        dns|k8s) ;;
+        *) echo "discovery must be dns or k8s, not '{{ discovery }}'" >&2; exit 1 ;;
+    esac
+    for tool in kind kubectl docker; do
+        command -v "$tool" > /dev/null || { echo "$tool is not installed" >&2; exit 1; }
+    done
+    # The kubelet backoff field and kindnetd's policy enforcement need a current kind.
+    kind version | grep -qE 'v0\.(3[3-9]|[4-9][0-9])' || { echo "kind v0.33 or later is required" >&2; exit 1; }
+    kind create cluster --config tellus-cluster-demo/k8s/kind.yaml
+    docker build -t tellus-cluster-demo:latest -f tellus-cluster-demo/Dockerfile .
+    kind load docker-image tellus-cluster-demo:latest --name tellus-cluster-demo
+    kubectl --context kind-tellus-cluster-demo create configmap tellus-discovery \
+        --from-literal=CONFIG_OVERLAYS={{ discovery }}
+    kubectl --context kind-tellus-cluster-demo create configmap tellus-chaos-script \
+        --from-file=tellus-cluster-demo/k8s/chaos.sh
+    kubectl --context kind-tellus-cluster-demo apply \
+        -f tellus-cluster-demo/k8s/rbac.yaml \
+        -f tellus-cluster-demo/k8s/nodes.yaml \
+        -f tellus-cluster-demo/k8s/lb.yaml \
+        -f tellus-cluster-demo/k8s/node-ports.yaml \
+        -f tellus-cluster-demo/k8s/partition.yaml \
+        -f tellus-cluster-demo/k8s/flush.yaml \
+        -f tellus-cluster-demo/k8s/verifier.yaml
+
+cluster-demo-k8s-down:
+    kind delete cluster --name tellus-cluster-demo
+
+# Without a target the whole demo is followed; with one, e.g. `tellus-2`, only that.
+cluster-demo-k8s-logs *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "{{ args }}" ]; then
+        kubectl --context kind-tellus-cluster-demo logs -f \
+            -l app.kubernetes.io/part-of=tellus-cluster-demo \
+            --all-containers --prefix --max-log-requests 10
+    else
+        kubectl --context kind-tellus-cluster-demo logs -f --all-containers --prefix {{ args }}
+    fi
+
+cluster-demo-k8s-status:
+    curl -s localhost:8080/cluster | jq
+    curl -s localhost:8081/status | jq
+
+cluster-demo-k8s-violations:
+    curl -s localhost:8081/violations | jq
+
+cluster-demo-check:
+    cargo check -p tellus-cluster-demo --all-targets
+
+cluster-demo-lint:
+    cargo clippy -p tellus-cluster-demo --all-targets --no-deps -- -D warnings
+
+cluster-demo-test:
+    cargo test -p tellus-cluster-demo

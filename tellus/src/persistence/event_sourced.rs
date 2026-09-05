@@ -74,9 +74,9 @@ where
         state: &Self::State,
     ) -> Result<Effect<Self>, Self::Error>;
 
-    /// Fold an event into the state: the only state transition, run on replay exactly as on a
-    /// live event, hence it must be pure and total: no I/O, no failure, no dependence on the
-    /// clock, on randomness or on per-incarnation values.
+    /// Fold an event into the state: the only state transition, run on replay exactly as on a live
+    /// event. It must hence be pure and total: no I/O, no failure, no dependence on the clock, on
+    /// randomness or on per-incarnation values.
     fn apply(&self, state: Self::State, event: Self::Event) -> Self::State;
 
     /// Offer a snapshot of the given state, called after the events of an [Effect] have been

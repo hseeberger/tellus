@@ -24,16 +24,20 @@ impl Backoff {
     /// The bounds of an exponential backoff starting at `min` and capped at `max`.
     ///
     /// # Errors
-    /// Fails if `max` is below `min`.
+    /// Fails if `min` is zero, which would make every step zero and hence the backoff no
+    /// backoff at all, or if `max` is below `min`.
     pub fn new(min: Duration, max: Duration) -> Result<Self, InvalidBackoff> {
+        if min.is_zero() {
+            return Err(InvalidBackoff::ZeroMin);
+        }
         if max < min {
-            return Err(InvalidBackoff { min, max });
+            return Err(InvalidBackoff::MaxBelowMin { min, max });
         }
 
         Ok(Self { min, max })
     }
 
-    /// The delay of the first step, doubled on every further one.
+    /// The delay of the first step, doubled on every further one; never zero.
     pub fn min(self) -> Duration {
         self.min
     }
@@ -43,7 +47,6 @@ impl Backoff {
         self.max
     }
 
-    /// The delay for the zero-based `step`.
     pub(crate) fn duration(self, step: u32) -> Duration {
         let factor = 1u32.checked_shl(step).unwrap_or(u32::MAX);
         self.min.saturating_mul(factor).min(self.max)
@@ -52,16 +55,26 @@ impl Backoff {
 
 impl Default for Backoff {
     fn default() -> Self {
-        Self::new(Self::DEFAULT_MIN, Self::DEFAULT_MAX).expect("the default bounds are ordered")
+        Self::new(Self::DEFAULT_MIN, Self::DEFAULT_MAX).expect("the default bounds are valid")
     }
 }
 
-/// The bounds given to [Backoff::new] contradict each other.
+/// The bounds given to [Backoff::new] are invalid.
 #[derive(Debug, Error)]
-#[error("max backoff {max:?} below min backoff {min:?}")]
-pub struct InvalidBackoff {
-    min: Duration,
-    max: Duration,
+pub enum InvalidBackoff {
+    /// The minimum is zero, which would make every step zero.
+    #[error("min backoff is zero")]
+    ZeroMin,
+
+    /// The bounds contradict each other.
+    #[error("max backoff {max:?} below min backoff {min:?}")]
+    MaxBelowMin {
+        /// The minimum which was given.
+        min: Duration,
+
+        /// The maximum which was given.
+        max: Duration,
+    },
 }
 
 #[cfg(feature = "serde")]
@@ -86,7 +99,7 @@ impl TryFrom<UncheckedBackoff> for Backoff {
 
 #[cfg(test)]
 mod tests {
-    use crate::backoff::Backoff;
+    use crate::backoff::{Backoff, InvalidBackoff};
     use std::time::Duration;
 
     const MIN: Duration = Duration::from_millis(250);
@@ -96,7 +109,7 @@ mod tests {
     /// holds; a step wide enough to overflow the shift must saturate into the cap, not wrap.
     #[test]
     fn backoff_doubles_up_to_the_cap() {
-        let backoff = Backoff::new(MIN, MAX).expect("the bounds are ordered");
+        let backoff = Backoff::new(MIN, MAX).expect("the bounds are valid");
 
         assert_eq!(backoff.duration(0), MIN);
         assert_eq!(backoff.duration(1), MIN * 2);
@@ -106,20 +119,39 @@ mod tests {
         assert_eq!(backoff.duration(u32::MAX), MAX);
     }
 
-    /// A zero minimum stays zero however often it is doubled, which is what makes the tests using
-    /// a zero backoff run without delay.
+    /// A zero minimum would make every step zero, so the restart loop would never await and
+    /// spin through its whole limit; it is refused instead of yielding a backoff which is none.
     #[test]
-    fn backoff_of_zero_stays_zero() {
-        let backoff = Backoff::new(Duration::ZERO, MAX).expect("the bounds are ordered");
+    fn a_zero_minimum_is_rejected() {
+        assert!(matches!(
+            Backoff::new(Duration::ZERO, MAX),
+            Err(InvalidBackoff::ZeroMin)
+        ));
+        assert!(matches!(
+            Backoff::new(Duration::ZERO, Duration::ZERO),
+            Err(InvalidBackoff::ZeroMin)
+        ));
+    }
 
-        assert_eq!(backoff.duration(5), Duration::ZERO);
+    /// Every reachable backoff delays, whatever the step: what lets the restart loop await it
+    /// unconditionally.
+    #[test]
+    fn no_reachable_backoff_is_zero() {
+        let backoff = Backoff::new(Duration::from_nanos(1), MAX).expect("the bounds are valid");
+
+        for step in [0, 1, 5, u32::MAX] {
+            assert!(!backoff.duration(step).is_zero());
+        }
     }
 
     /// A cap below the minimum is rejected rather than repaired, so no [Backoff] contradicts
     /// itself and a config file naming inverted bounds is reported instead of quietly rewritten.
     #[test]
     fn a_cap_below_the_minimum_is_rejected() {
-        assert!(Backoff::new(MAX, MIN).is_err());
+        assert!(matches!(
+            Backoff::new(MAX, MIN),
+            Err(InvalidBackoff::MaxBelowMin { .. })
+        ));
         assert!(Backoff::new(MIN, MIN).is_ok());
     }
 
@@ -129,11 +161,12 @@ mod tests {
     #[test]
     fn deserializing_validates_the_bounds() {
         let backoff = serde_json::from_str::<Backoff>(r#"{ "min": "250ms", "max": "3s" }"#)
-            .expect("the bounds are ordered");
+            .expect("the bounds are valid");
         assert_eq!(backoff.min(), MIN);
         assert_eq!(backoff.max(), MAX);
 
         assert!(serde_json::from_str::<Backoff>(r#"{ "min": "3s", "max": "250ms" }"#).is_err());
+        assert!(serde_json::from_str::<Backoff>(r#"{ "min": "0s", "max": "3s" }"#).is_err());
     }
 
     /// A misspelled key must be an error, not a silently applied default.

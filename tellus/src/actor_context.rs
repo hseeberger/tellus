@@ -1,7 +1,10 @@
+#[cfg(feature = "cluster")]
+use crate::cluster;
 use crate::{
-    Actor, ActorConfig, ActorId, ActorRef, Control, Incoming, ReplyTo, SupervisionStrategy,
-    actor_ref::SelfRef,
-    mailbox::{Mailbox, WatcherRegistry},
+    Actor, ActorConfig, ActorId, ActorRef, Control, Incoming, SupervisionStrategy,
+    actor_ref::{SelfRef, WatchTarget},
+    mailbox::Mailbox,
+    watch::WatcherRegistry,
 };
 use derive_more::Debug;
 use std::{
@@ -27,8 +30,6 @@ use tracing::{debug, error};
 pub(crate) const STATE_FAILED_TO_DROP: &str = "actor state failed to drop";
 
 /// Contextual methods for a given actor, provided to [Actor::init] and [Actor::receive].
-///
-/// A context belongs to its actor's task, hence it is deliberately not [Sync].
 #[derive(Debug)]
 pub struct ActorContext<M> {
     self_ref: SelfRef<M>,
@@ -40,7 +41,7 @@ pub struct ActorContext<M> {
     stopping_rx: watch::Receiver<()>,
 
     #[debug(skip)]
-    watched: RefCell<HashMap<ActorId, WatcherRegistry>>,
+    watched: RefCell<HashMap<ActorId, Watched>>,
 }
 
 impl<M> ActorContext<M> {
@@ -75,50 +76,52 @@ impl<M> ActorContext<M> {
         spawn(self.stopping_rx.clone(), actor, config)
     }
 
-    /// Create a [ReplyTo] which delivers the reply to this actor as an ordinary message,
-    /// converted by the given function, typically an enum variant constructor. This is the actor
-    /// side of request-response: no future is created or awaited, the reply arrives via
-    /// [Actor::receive] like any other message.
-    ///
-    /// The reply takes the same path as an [ActorRef::tell] to this actor: it counts against a
-    /// bounded mailbox capacity and is dropped and logged as a dead letter if this actor has
-    /// terminated or its mailbox is full.
-    pub fn reply_to<R, F>(&self, into_message: F) -> ReplyTo<R>
-    where
-        F: FnOnce(R) -> M + Send + 'static,
-        M: Send + 'static,
-        R: 'static,
-    {
-        let actor_ref = self.self_ref().clone();
-        ReplyTo::new(move |reply| actor_ref.tell(into_message(reply)))
-    }
-
     /// Watch another actor, i.e. receive an [Incoming::Terminated] signal once that actor has
     /// terminated. If it has already terminated, the signal is received right away. Watching an
     /// already watched actor again has no effect: the signal is delivered once.
     ///
-    /// The signal is ordered behind all messages the other actor has delivered to this actor,
-    /// hence receiving it proves that this actor has seen every message from the other one it will
+    /// The signal is ordered behind all messages the other actor has delivered to this actor.
+    /// Receiving it hence proves that this actor has seen every message from the other one it will
     /// ever see: each arrived before the signal or was dropped as a dead letter.
     ///
-    /// [Incoming::Terminated]: crate::Incoming::Terminated
+    /// With the `cluster` feature the other actor may live on another node. The ordering guarantee
+    /// is kept there, too. Yet only a signal coming from that node proves that the other actor has
+    /// terminated. A signal synthesized here, after that node was declared dead, does not: the
+    /// other actor may still be alive. See docs/cluster.md for the exact contract.
     pub fn watch<N>(&self, other: &ActorRef<N>) {
-        let registry = other.watcher_registry().clone();
-        let registration = registry.add(self.self_ref.make_watcher());
-        self.watched.borrow_mut().insert(other.actor_id(), registry);
+        match other.watch_target() {
+            WatchTarget::Local(registry) => {
+                let registry = registry.clone();
+                let registration = registry.add(self.self_ref.make_watcher());
+                self.watched
+                    .borrow_mut()
+                    .insert(other.actor_id(), Watched::Local(registry));
 
-        if registration.is_err() {
-            self.self_ref.send_terminated(other.actor_id());
+                if registration.is_err() {
+                    self.self_ref.send_terminated(other.actor_id());
+                }
+            }
+
+            #[cfg(feature = "cluster")]
+            WatchTarget::Remote(node) => {
+                self.watched.borrow_mut().insert(
+                    other.actor_id(),
+                    Watched::Remote {
+                        node,
+                        target: other.actor_id(),
+                    },
+                );
+                cluster::watch_remote(node, other.actor_id(), self.self_ref.make_watcher());
+            }
         }
     }
 
     /// Stop watching another actor: no terminated signal for it will be received anymore, even if
     /// it has already terminated and the signal is already enqueued. Unwatching an actor which is
-    /// not watched, e.g. because it was never watched or its signal has already been received, has
-    /// no effect.
+    /// not watched, has no effect.
     pub fn unwatch<N>(&self, other: &ActorRef<N>) {
-        if let Some(registry) = self.watched.borrow_mut().remove(&other.actor_id()) {
-            registry.remove(self.self_ref().actor_id());
+        if let Some(watched) = self.watched.borrow_mut().remove(&other.actor_id()) {
+            unwatch(self.self_ref().actor_id(), watched);
         }
     }
 
@@ -142,19 +145,18 @@ impl<M> ActorContext<M> {
         self.watched.get_mut().remove(&other_id).is_some()
     }
 
-    /// Install the next generation's receiver before awaiting the current sender, else this
-    /// context's own receiver keeps the channel open and `closed` never resolves.
     async fn stop_children(&mut self) {
         let (next_stopping_tx, next_stopping_rx) = watch::channel(());
 
         let stopping_tx = mem::replace(&mut self.stopping_tx, next_stopping_tx);
         let _ = stopping_tx.send(());
-        self.stopping_rx = next_stopping_rx;
 
+        // The assignment also drops the old `stopping_rx` without which `closed` never resolves.
+        self.stopping_rx = next_stopping_rx;
         stopping_tx.closed().await;
     }
 
-    fn take_watched(&mut self) -> HashMap<ActorId, WatcherRegistry> {
+    fn take_watched(&mut self) -> HashMap<ActorId, Watched> {
         mem::take(self.watched.get_mut())
     }
 }
@@ -176,10 +178,16 @@ impl Display for PanicPayload<'_> {
 }
 
 // A macro, not an async fn: the run loops' message hot path must not pay for a nested state
-// machine.
+// machine. Expanded, the awaits below are states of the run loop itself, not of a future it has
+// to poll into once per message.
 macro_rules! next_incoming {
     ($actor_id:expr, $mailbox:expr, $context:expr, $stopped_by_parent:expr) => {
         'next_incoming: loop {
+            // Flume's receive future does not participate in Tokio's cooperative budget. Charge
+            // one unit explicitly, so an actor whose mailbox never runs empty still yields to the
+            // other tasks on its worker.
+            tokio::task::coop::consume_budget().await;
+
             let incoming = tokio::select! {
                 biased;
 
@@ -204,7 +212,7 @@ macro_rules! next_incoming {
                     other_id = %*other,
                     "dropping terminated signal for an unwatched actor"
                 );
-                continue;
+                continue 'next_incoming;
             }
 
             break 'next_incoming Some(incoming);
@@ -266,7 +274,7 @@ where
                 }
             }
 
-            let restart = await_restart(
+            let restart = should_restart(
                 actor_id,
                 config.supervision_strategy,
                 up_since,
@@ -287,13 +295,23 @@ where
     actor_ref
 }
 
-/// The failure is consumed here, before the run loop's awaits, so `A::Error` need not be [Send].
 pub(crate) fn catch_and_log<T, E, F>(actor_id: ActorId, failure: &str, f: F) -> Option<T>
 where
     E: Error,
     F: FnOnce() -> Result<T, E>,
 {
-    match catch_panic_and_log(actor_id, failure, f)? {
+    log_failure(actor_id, failure, catch_panic_and_log(actor_id, failure, f))
+}
+
+pub(crate) fn log_failure<T, E>(
+    actor_id: ActorId,
+    failure: &str,
+    result: Option<Result<T, E>>,
+) -> Option<T>
+where
+    E: Error,
+{
+    match result? {
         Ok(value) => Some(value),
 
         Err(error) => {
@@ -317,14 +335,13 @@ where
     }
 }
 
-/// A panic escaping the destructor must not unwind the task.
 pub(crate) fn drop_containing_panic<T>(actor_id: ActorId, failure: &str, value: T) {
     if let Err(panic) = catch_unwind(AssertUnwindSafe(|| drop(value))) {
         error!(%actor_id, panic = %PanicPayload(panic.as_ref()), "{failure}");
     }
 }
 
-pub(crate) async fn await_restart<F, M>(
+pub(crate) async fn should_restart<F, M>(
     actor_id: ActorId,
     supervision_strategy: SupervisionStrategy,
     up_since: Option<Instant>,
@@ -355,7 +372,7 @@ where
 
     context.stop_children().await;
 
-    match await_backoff(delay, parent_stopping_rx, stopped_by_parent.as_mut()).await {
+    match await_backoff(delay, stopped_by_parent.as_mut()).await {
         Interrupted::No => true,
 
         Interrupted::StoppedByParent => {
@@ -365,24 +382,19 @@ where
     }
 }
 
-/// The state must already have been dropped by the caller. The queued messages are moved out and
-/// the channel is dropped before their destructors run: senders observe the termination while the
-/// children still stop, and no user code runs in the window where a racing send can still slip
-/// past the drain (flume retains such a message until its last sender drops); the watchers are
-/// signaled last, since a terminated signal must prove that the actor's destructors have run.
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
 pub(crate) async fn terminate<A, M>(actor: A, mut context: ActorContext<M>, mailbox: Mailbox<M>) {
     let actor_id = context.self_ref().actor_id();
 
-    let (incoming_rx, closed_mailbox) = mailbox.split();
+    let (incoming_rx, watchers) = mailbox.split();
     let drained = incoming_rx.drain().collect::<Vec<_>>();
     drop_containing_panic(actor_id, "mailbox failed to drop", incoming_rx);
     for incoming in drained {
         drop_containing_panic(actor_id, "queued message failed to drop", incoming);
     }
 
-    for registry in context.take_watched().into_values() {
-        registry.remove(actor_id);
+    for watched in context.take_watched().into_values() {
+        unwatch(actor_id, watched);
     }
 
     context.stop_children().await;
@@ -391,8 +403,8 @@ pub(crate) async fn terminate<A, M>(actor: A, mut context: ActorContext<M>, mail
 
     drop_containing_panic(actor_id, "actor failed to drop", actor);
 
-    for watcher in closed_mailbox.take_watchers() {
-        if let Err(error) = watcher.send_terminated(actor_id) {
+    for watcher in watchers.close() {
+        if let Err(error) = watcher.handle_terminated(actor_id) {
             debug!(
                 %actor_id,
                 watcher_id = %watcher.watcher_id(),
@@ -406,6 +418,16 @@ pub(crate) async fn terminate<A, M>(actor: A, mut context: ActorContext<M>, mail
     debug!(%actor_id, "terminated");
 }
 
+enum Watched {
+    Local(WatcherRegistry),
+
+    #[cfg(feature = "cluster")]
+    Remote {
+        node: cluster::NodeId,
+        target: ActorId,
+    },
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum Restart {
     After(Duration),
@@ -417,6 +439,15 @@ enum Restart {
 enum Interrupted {
     No,
     StoppedByParent,
+}
+
+fn unwatch(watcher_id: ActorId, watched: Watched) {
+    match watched {
+        Watched::Local(registry) => registry.remove(watcher_id),
+
+        #[cfg(feature = "cluster")]
+        Watched::Remote { node, target } => cluster::unwatch_remote(node, target, watcher_id),
+    }
 }
 
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
@@ -457,29 +488,14 @@ fn next_restart(
     Restart::After(delay)
 }
 
-async fn await_backoff<F>(
-    delay: Duration,
-    parent_stopping_rx: &watch::Receiver<()>,
-    stopped_by_parent: Pin<&mut F>,
-) -> Interrupted
+async fn await_backoff<F>(delay: Duration, stopped_by_parent: Pin<&mut F>) -> Interrupted
 where
     F: Future,
 {
-    // A zero delay skips the select!, so the parent stop must be probed here.
-    let stopped = if delay.is_zero() {
-        parent_stopping_rx.has_changed().unwrap_or(true)
-    } else {
-        select! {
-            biased;
-            _ = stopped_by_parent => true,
-            _ = sleep(delay) => false,
-        }
-    };
-
-    if stopped {
-        Interrupted::StoppedByParent
-    } else {
-        Interrupted::No
+    select! {
+        biased;
+        _ = stopped_by_parent => Interrupted::StoppedByParent,
+        _ = sleep(delay) => Interrupted::No,
     }
 }
 
@@ -490,61 +506,24 @@ mod tests {
         actor_context::{Interrupted, PanicPayload, Restart, await_backoff, next_restart},
     };
     use std::{future, num::NonZeroU32, pin::pin, time::Duration};
-    use tokio::{sync::watch, time::Instant};
+    use tokio::time::Instant;
 
     const MIN: Duration = Duration::from_millis(250);
     const MAX: Duration = Duration::from_secs(1);
+    const NO_RESET: Duration = Duration::from_secs(3600);
 
     #[tokio::test(start_paused = true)]
     async fn a_backoff_elapses_uninterrupted() {
-        let (_parent_stopping_tx, parent_stopping_rx) = watch::channel(());
-
-        let interrupted = await_backoff(
-            Duration::from_secs(1),
-            &parent_stopping_rx,
-            pin!(future::pending::<()>()),
-        )
-        .await;
+        let interrupted =
+            await_backoff(Duration::from_secs(1), pin!(future::pending::<()>())).await;
 
         assert_eq!(interrupted, Interrupted::No);
     }
 
     #[tokio::test(start_paused = true)]
     async fn a_parent_stop_beats_the_backoff() {
-        let (_parent_stopping_tx, parent_stopping_rx) = watch::channel(());
+        let interrupted = await_backoff(Duration::from_secs(1), pin!(future::ready(()))).await;
 
-        let interrupted = await_backoff(
-            Duration::from_secs(1),
-            &parent_stopping_rx,
-            pin!(future::ready(())),
-        )
-        .await;
-
-        assert_eq!(interrupted, Interrupted::StoppedByParent);
-    }
-
-    /// A zero backoff never awaits the stop future, so the parent stop is caught by the second
-    /// check rather than by the race.
-    #[tokio::test(start_paused = true)]
-    async fn a_zero_backoff_still_checks_the_parent() {
-        let (parent_stopping_tx, parent_stopping_rx) = watch::channel(());
-
-        let interrupted = await_backoff(
-            Duration::ZERO,
-            &parent_stopping_rx,
-            pin!(future::pending::<()>()),
-        )
-        .await;
-        assert_eq!(interrupted, Interrupted::No);
-
-        parent_stopping_tx.send(()).expect("receiver is alive");
-
-        let interrupted = await_backoff(
-            Duration::ZERO,
-            &parent_stopping_rx,
-            pin!(future::pending::<()>()),
-        )
-        .await;
         assert_eq!(interrupted, Interrupted::StoppedByParent);
     }
 
@@ -558,7 +537,7 @@ mod tests {
         assert_eq!(PanicPayload(&42).to_string(), "<non-string panic payload>");
     }
 
-    /// Under `Stop` a failure is never retried, whatever the streak looks like.
+    /// Under `Stop` a failure is never retried, however many failures came before it.
     #[test]
     fn stop_never_restarts() {
         let mut restarts = 0;
@@ -570,11 +549,11 @@ mod tests {
         assert_eq!(restarts, 0);
     }
 
-    /// The n-th restart of a streak is delayed by the backoff's `min * 2^(n-1)`, capped at its
-    /// `max`, and each one advances the streak by exactly one.
+    /// The n-th consecutive restart is delayed by the backoff's `min * 2^(n-1)`, capped at its
+    /// `max`, and each one advances the count by exactly one.
     #[test]
-    fn the_delay_doubles_and_advances_the_streak() {
-        let strategy = restart(NonZeroU32::MAX);
+    fn the_delay_doubles_and_advances_the_count() {
+        let strategy = restart(NonZeroU32::MAX, Duration::ZERO);
         let mut restarts = 0;
 
         for expected in [MIN, MIN * 2, MIN * 4, MAX, MAX] {
@@ -586,11 +565,11 @@ mod tests {
         assert_eq!(restarts, 5);
     }
 
-    /// One failure more than `max_restarts` within a streak stops the actor rather than restarting
+    /// One failure more than `max_restarts` stops the actor rather than restarting
     /// it again.
     #[test]
     fn exceeding_the_limit_stops() {
-        let strategy = restart(NonZeroU32::new(2).expect("2 is not zero"));
+        let strategy = restart(NonZeroU32::new(2).expect("2 is not zero"), Duration::ZERO);
         let mut restarts = 0;
 
         assert_eq!(
@@ -607,11 +586,11 @@ mod tests {
         );
     }
 
-    /// Running for at least `reset_after` ends the streak, so an actor which keeps recovering is
+    /// Running for at least `reset_after` resets the count, so an actor which keeps recovering is
     /// restarted indefinitely instead of exhausting its limit.
     #[tokio::test]
-    async fn running_long_enough_resets_the_streak() {
-        let strategy = restart(NonZeroU32::MIN);
+    async fn running_long_enough_resets_the_count() {
+        let strategy = restart(NonZeroU32::MIN, Duration::ZERO);
         let mut restarts = 7;
 
         assert_eq!(
@@ -621,13 +600,25 @@ mod tests {
         assert_eq!(restarts, 1);
     }
 
-    /// A policy which resets on any uptime at all, so the streak is governed by the call sequence
-    /// rather than by wall clock time.
-    fn restart(max_restarts: NonZeroU32) -> SupervisionStrategy {
+    /// Running for less than `reset_after` keeps the count, so an actor which fails again right
+    /// after coming up still escalates to a stop instead of restarting forever.
+    #[tokio::test]
+    async fn running_briefly_keeps_the_count() {
+        let strategy = restart(NonZeroU32::MIN, NO_RESET);
+        let mut restarts = 1;
+
+        assert_eq!(
+            next_restart(strategy, Some(Instant::now()), &mut restarts),
+            Restart::LimitExceeded
+        );
+        assert_eq!(restarts, 1);
+    }
+
+    fn restart(max_restarts: NonZeroU32, reset_after: Duration) -> SupervisionStrategy {
         SupervisionStrategy::Restart(RestartPolicy {
             max_restarts,
-            backoff: Backoff::new(MIN, MAX).expect("the bounds are ordered"),
-            reset_after: Duration::ZERO,
+            backoff: Backoff::new(MIN, MAX).expect("the bounds are valid"),
+            reset_after,
         })
     }
 }

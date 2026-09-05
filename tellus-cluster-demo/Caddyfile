@@ -1,0 +1,13 @@
+{
+    admin off
+}
+
+:80 {
+    reverse_proxy node1:8080 node2:8080 node3:8080 node4:8080 node5:8080 {
+        lb_policy round_robin
+        health_uri /health
+        health_interval 2s
+        health_timeout 1s
+        fail_duration 5s
+    }
+}

@@ -1,0 +1,51 @@
+# The partition. Both policies are applied once and do nothing until the chaos agent labels
+# pods, since a policy selecting no pod selects nothing. Ingress only, so egress to CoreDNS and
+# to the API server keeps working and a node restarting mid-partition can still bootstrap.
+#
+# `NotIn` also matches a pod carrying no `side` label at all, which is what keeps the verifier
+# talking to both sides. The ipBlock admits every source which is not a pod, which is what lets
+# NodePort traffic from the host in; that half is a kind arrangement, not a Kubernetes
+# guarantee, since where service rewriting happens relative to policy evaluation is left to the
+# implementation.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tellus-partition-a
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  podSelector:
+    matchLabels:
+      app: tellus
+      side: a
+  policyTypes: [ Ingress ]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: side, operator: NotIn, values: [ b ] }
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [ 10.244.0.0/16 ]
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tellus-partition-b
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  podSelector:
+    matchLabels:
+      app: tellus
+      side: b
+  policyTypes: [ Ingress ]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - { key: side, operator: NotIn, values: [ a ] }
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [ 10.244.0.0/16 ]

@@ -5,11 +5,11 @@ use crate::persistence::{
 use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
-/// A value stored durably, an event or a snapshot, named and versioned for schema evolution:
-/// stored payloads outlive the code which wrote them, so every payload carries a stable name and a
-/// schema version outside of itself, and old versions can be upcast on read by overriding
-/// [decode](Versioned::decode), while the store is never rewritten; a version which is neither
-/// current nor upcast is rejected on read.
+/// A value stored durably, an event or a snapshot, named and versioned for schema evolution. Stored
+/// payloads outlive the code which wrote them, so every payload carries a stable name and a schema
+/// version outside of itself. Old versions can be upcast on read by overriding
+/// [decode](Versioned::decode); the store is never rewritten. A version which is neither current
+/// nor upcast is rejected on read.
 pub trait Versioned
 where
     Self: Serialize + DeserializeOwned,

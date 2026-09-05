@@ -1,7 +1,11 @@
-use std::{convert::Infallible, time::Duration};
+use std::{convert::Infallible, sync::mpsc as std_mpsc, thread, time::Duration};
 use tellus::{Actor, ActorContext, ActorRef, ActorSystem, Control, Incoming, Nothing};
 use thiserror::Error;
-use tokio::{sync::mpsc, time::timeout};
+use tokio::{
+    runtime::Builder,
+    sync::mpsc,
+    time::{sleep, timeout},
+};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 const SELF_SENDS: usize = 1_000;
@@ -82,10 +86,48 @@ async fn init_may_self_send_without_blocking() {
     assert_terminates(system).await;
 }
 
+/// A permanently ready Flume receive must still charge Tokio's cooperative budget. The external
+/// stop keeps a regression from hanging the test process: without fairness it wins and fails.
+#[test]
+fn a_self_telling_actor_yields_to_a_current_thread_timer() {
+    let (root_tx, root_rx) = std_mpsc::sync_channel(1);
+    let (stopped_tx, stopped_rx) = std_mpsc::sync_channel(1);
+    let runtime_thread = thread::spawn(move || {
+        Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .expect("current-thread runtime")
+            .block_on(async move {
+                let system = ActorSystem::new(FairLoop { stopped_tx });
+                let root = system.root().clone();
+                root_tx.send(root.clone()).expect("test receives root");
+                tokio::spawn(async move {
+                    sleep(Duration::from_millis(10)).await;
+                    root.tell(FairMessage::TimerStop);
+                });
+                system.terminated().await.expect("actor system terminates");
+            });
+    });
+
+    let root = root_rx.recv().expect("runtime publishes root");
+    let stopped_by = match stopped_rx.recv_timeout(Duration::from_millis(500)) {
+        Ok(stopped_by) => stopped_by,
+        Err(std_mpsc::RecvTimeoutError::Timeout) => {
+            root.tell(FairMessage::WatchdogStop);
+            stopped_rx.recv().expect("watchdog stops actor")
+        }
+        Err(error) => panic!("stop channel failed: {error}"),
+    };
+    runtime_thread
+        .join()
+        .expect("runtime thread does not panic");
+    assert_eq!(stopped_by, FairMessage::TimerStop);
+}
+
 /// A terminated signal must prove that the actor's destructors have run, but a panic escaping one
-/// of them must not skip the signal: the actor value is dropped on the termination path, hence a
-/// panic there would otherwise unwind the actor's task before its watchers are signaled and the
-/// actor system would never terminate.
+/// of them must not skip the signal. The actor value is dropped on the termination path. A panic
+/// there would otherwise unwind the actor's task before its watchers are signaled, and the actor
+/// system would never terminate.
 #[tokio::test]
 async fn panicking_actor_destructor_still_terminates_system() {
     let (dropped_tx, mut dropped_rx) = mpsc::channel(1);
@@ -283,6 +325,51 @@ impl Actor for SelfSender {
 
             Incoming::Message(SelfSend::Done) => {
                 let _ = self.received_tx.try_send(state);
+                Ok(Control::Stop)
+            }
+
+            Incoming::Terminated(_) => Ok(Control::Continue(state)),
+        }
+    }
+}
+
+struct FairLoop {
+    stopped_tx: std_mpsc::SyncSender<FairMessage>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FairMessage {
+    Tick,
+    TimerStop,
+    WatchdogStop,
+}
+
+impl Actor for FairLoop {
+    type Message = FairMessage;
+    type State = ();
+    type Error = Infallible;
+
+    fn init(&self, context: &ActorContext<Self::Message>) -> Result<Self::State, Self::Error> {
+        context.self_ref().tell(FairMessage::Tick);
+        Ok(())
+    }
+
+    fn receive(
+        &self,
+        context: &ActorContext<Self::Message>,
+        incoming: Incoming<Self::Message>,
+        state: Self::State,
+    ) -> Result<Control<Self::State>, Self::Error> {
+        match incoming {
+            Incoming::Message(FairMessage::Tick) => {
+                context.self_ref().tell(FairMessage::Tick);
+                Ok(Control::Continue(state))
+            }
+
+            Incoming::Message(
+                stopped_by @ (FairMessage::TimerStop | FairMessage::WatchdogStop),
+            ) => {
+                let _ = self.stopped_tx.send(stopped_by);
                 Ok(Control::Stop)
             }
 

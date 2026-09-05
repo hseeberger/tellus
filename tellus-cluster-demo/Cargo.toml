@@ -1,0 +1,25 @@
+[package]
+name          = "tellus-cluster-demo"
+description   = "A five node tellus cluster under continuous chaos, managed by Docker Compose."
+version       = "0.1.0"
+edition       = { workspace = true }
+license       = { workspace = true }
+homepage      = { workspace = true }
+repository    = { workspace = true }
+documentation = { workspace = true }
+publish       = false
+
+[dependencies]
+anyhow               = { workspace = true }
+axum                 = { workspace = true, features = [ "http1", "json", "tokio" ] }
+configured           = { workspace = true }
+k8s-openapi          = { workspace = true, features = [ "v1_36" ] }
+reqwest              = { workspace = true, features = [ "json" ] }
+serde                = { workspace = true, features = [ "derive" ] }
+serde_json           = { workspace = true }
+tellus               = { workspace = true, features = [ "cluster-dev", "serde" ] }
+tellus-bootstrap-dns = { workspace = true, features = [ "serde" ] }
+tellus-bootstrap-k8s = { workspace = true, features = [ "serde" ] }
+tokio                = { workspace = true, features = [ "fs", "macros", "net", "rt-multi-thread", "signal", "sync", "time" ] }
+tracing              = { workspace = true }
+tracing-subscriber   = { workspace = true, features = [ "env-filter", "fmt" ] }
