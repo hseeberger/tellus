@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788896127273,
+  "lastUpdate": 1788896129017,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1789,6 +1789,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 205842,
             "range": "± 3787",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "777d77585d3af2440b768f780df2466e2019e8e6",
+          "message": "Merge pull request #69 from hseeberger/dependabot/github_actions/ci-minor-fcbeee0005\n\nci(deps): bump taiki-e/install-action from 2.86.7 to 2.87.3 in the ci-minor group",
+          "timestamp": "2026-09-08T21:32:03+02:00",
+          "tree_id": "da673ef3816b3932f0b189fc920af9ce8c0a2f8b",
+          "url": "https://github.com/hseeberger/tellus/commit/777d77585d3af2440b768f780df2466e2019e8e6"
+        },
+        "date": 1788896128710,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3042487,
+            "range": "± 21852",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3043121,
+            "range": "± 12440",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1765912,
+            "range": "± 8178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 205532,
+            "range": "± 3538",
             "unit": "ns/iter"
           }
         ]
