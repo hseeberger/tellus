@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788895845655,
+  "lastUpdate": 1788896127273,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -959,6 +959,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3437347,
             "range": "± 27174",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "777d77585d3af2440b768f780df2466e2019e8e6",
+          "message": "Merge pull request #69 from hseeberger/dependabot/github_actions/ci-minor-fcbeee0005\n\nci(deps): bump taiki-e/install-action from 2.86.7 to 2.87.3 in the ci-minor group",
+          "timestamp": "2026-09-08T21:32:03+02:00",
+          "tree_id": "da673ef3816b3932f0b189fc920af9ce8c0a2f8b",
+          "url": "https://github.com/hseeberger/tellus/commit/777d77585d3af2440b768f780df2466e2019e8e6"
+        },
+        "date": 1788896126764,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 11505781,
+            "range": "± 110854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 12177955,
+            "range": "± 200649",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 648428,
+            "range": "± 27637",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 791461,
+            "range": "± 20026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 4911207,
+            "range": "± 184546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 3417050,
+            "range": "± 18659",
             "unit": "ns/iter"
           }
         ]
