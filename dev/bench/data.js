@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789042313263,
+  "lastUpdate": 1789042314818,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1897,6 +1897,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 205532,
             "range": "± 3538",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "521e3495b152643addd15034394faf9ba8215200",
+          "message": "Merge pull request #70 from hseeberger/build/rust\n\nbuild(deps): bump Rust to 1.98.1",
+          "timestamp": "2026-09-10T15:07:59+03:00",
+          "tree_id": "754e22e20c6c5fc17d3cfd2920c596b3f8665b40",
+          "url": "https://github.com/hseeberger/tellus/commit/521e3495b152643addd15034394faf9ba8215200"
+        },
+        "date": 1789042314527,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2464629,
+            "range": "± 21785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2418250,
+            "range": "± 13262",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1194610,
+            "range": "± 5418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 141287,
+            "range": "± 3988",
             "unit": "ns/iter"
           }
         ]
