@@ -1,0 +1,31 @@
+# The demo cluster: one node, its image pinned by digest so the kubelet field and the
+# NetworkPolicy enforcement this demo depends on are guaranteed rather than assumed.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: tellus-cluster-demo
+
+networking:
+  # partition.yaml names this subnet to tell pod traffic from host traffic.
+  podSubnet: "10.244.0.0/16"
+
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+
+    kubeadmConfigPatches:
+      # A node downed by the cluster exits on purpose, which the kubelet cannot tell from a
+      # crash loop: its default backoff would grow to five minutes and stall the chaos cycle.
+      - |
+        kind: KubeletConfiguration
+        crashLoopBackOff:
+          maxContainerRestartPeriod: "2s"
+
+    # listenAddress keeps a chaos cluster off every other interface of this machine.
+    extraPortMappings:
+      - { containerPort: 30080, hostPort: 8080, listenAddress: "127.0.0.1" }
+      - { containerPort: 30081, hostPort: 8081, listenAddress: "127.0.0.1" }
+      - { containerPort: 30091, hostPort: 8091, listenAddress: "127.0.0.1" }
+      - { containerPort: 30092, hostPort: 8092, listenAddress: "127.0.0.1" }
+      - { containerPort: 30093, hostPort: 8093, listenAddress: "127.0.0.1" }
+      - { containerPort: 30094, hostPort: 8094, listenAddress: "127.0.0.1" }
+      - { containerPort: 30095, hostPort: 8095, listenAddress: "127.0.0.1" }

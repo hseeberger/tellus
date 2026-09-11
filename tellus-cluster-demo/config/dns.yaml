@@ -1,0 +1,5 @@
+seeds:
+  dns:
+    ip:
+      name: tellus
+      port: 7878

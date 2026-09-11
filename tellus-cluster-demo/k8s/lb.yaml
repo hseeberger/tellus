@@ -1,0 +1,17 @@
+# The load balancer is the service itself: the readiness probe takes a downed node out of
+# rotation, which is what Caddy does for the Compose stack.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tellus-lb
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  type: NodePort
+  selector:
+    app: tellus
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30080

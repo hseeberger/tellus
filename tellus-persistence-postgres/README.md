@@ -22,9 +22,9 @@ snapshots in `snapshots` keyed by `(entity_type, entity_id)`, only the latest on
 schema is [`migrations/0001_events_and_snapshots.sql`](migrations/0001_events_and_snapshots.sql),
 embedded in the crate and applied via `PostgresStore::migrate`.
 
-Appends are a single atomic, conditional statement: a stale expected next sequence number, below or
-above the actual one, fails with `AppendError::Conflict` and leaves the stream untouched, which is
-tellus's fencing guarantee. An empty append inserts nothing but is still fenced.
+Appends are a single atomic, conditional statement: a stale expected next sequence number, below
+or above the actual one, fails with `AppendError::Conflict` and leaves the stream untouched, which
+is tellus's fencing guarantee. An empty append inserts nothing but is still fenced.
 
 ## Examples
 
@@ -33,8 +33,8 @@ Both recipes start the `postgres` service of the repository's
 defaulting to that service. `docker compose down` stops it, `down -v` resets the data.
 
 - [`event_sourced_counter`](examples/event_sourced_counter.rs): a counter surviving process
-  restarts; every run recovers the count by replay, increments it once and prints the new count, so
-  repeated runs count on:
+  restarts; every run recovers the count by replay, increments it once and prints the new count,
+  so repeated runs count on:
 
   ```shell
   just run-examples-event-sourced-counter

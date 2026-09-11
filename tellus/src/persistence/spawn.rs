@@ -1,8 +1,8 @@
 use crate::{
     ActorConfig, ActorContext, ActorId, ActorRef, ActorSystem,
     actor_context::{
-        PanicPayload, STATE_FAILED_TO_DROP, await_restart, catch_and_log, catch_panic_and_log,
-        drop_containing_panic, next_incoming, terminate,
+        PanicPayload, STATE_FAILED_TO_DROP, catch_and_log, catch_panic_and_log,
+        drop_containing_panic, log_failure, next_incoming, should_restart, terminate,
     },
     actor_ref::SelfRef,
     actor_system::watch_root,
@@ -22,6 +22,7 @@ use crate::{
 };
 use std::{
     any::Any,
+    borrow::Cow,
     error::Error,
     future::{Future, poll_fn},
     num::NonZeroUsize,
@@ -34,11 +35,9 @@ use tokio::{select, sync::watch, task, time::Instant};
 use tracing::{debug, error, warn};
 
 const FAILED_TO_RECOVER: &str = "actor failed to recover";
-
+const FAILED_TO_APPEND: &str = "actor failed to append events";
 const SNAPSHOT_NOT_SAVED: &str = "snapshot not saved";
-
 const VALUES_FAILED_TO_DROP: &str = "actor values failed to drop";
-
 const REPLAY_PAGE: NonZeroUsize = NonZeroUsize::new(512).unwrap();
 
 impl<M> ActorSystem<M>
@@ -82,10 +81,10 @@ where
         S: SnapshotStore,
         C: Codec + Send + Sync + 'static,
     {
-        let (stopping_tx, stopping_rx) = watch::channel(());
+        let (stop_root_tx, stopped_by_parent_rx) = watch::channel(());
 
-        let root = spawn_event_sourced(stopping_rx, actor, persistence, config);
-        let terminated_rx = watch_root(&root, stopping_tx);
+        let root = spawn_event_sourced(stopped_by_parent_rx, actor, persistence, config);
+        let terminated_rx = watch_root(&root, stop_root_tx);
 
         Self::from_parts(root, terminated_rx)
     }
@@ -136,7 +135,7 @@ impl<M> ActorContext<M> {
         S: SnapshotStore,
         C: Codec + Send + Sync + 'static,
     {
-        spawn_event_sourced(self.stopping_rx(), actor, persistence, config)
+        spawn_event_sourced(self.stop_children_rx(), actor, persistence, config)
     }
 }
 
@@ -174,7 +173,7 @@ where
 }
 
 fn spawn_event_sourced<A, E, S, C>(
-    parent_stopping_rx: watch::Receiver<()>,
+    stopped_by_parent_rx: watch::Receiver<()>,
     actor: A,
     persistence: Persistence<E, S, C>,
     config: ActorConfig,
@@ -196,14 +195,13 @@ where
     task::spawn(async move {
         let mut context = ActorContext::new(self_ref);
 
-        let mut rx = parent_stopping_rx.clone();
+        let mut rx = stopped_by_parent_rx.clone();
         let mut stopped_by_parent = pin!(rx.changed());
 
         let mut restarts = 0;
 
         'run: loop {
-            // A panicking state drop on cancellation must not unwind past `terminate`!
-            let mut recovering = Box::pin(recover(actor_id, &actor, &persistence));
+            let mut recovering = Box::pin(recover_or_log_failure(actor_id, &actor, &persistence));
             let recovered = select! {
                 biased;
 
@@ -215,6 +213,7 @@ where
 
                 recovered = &mut recovering => recovered,
             };
+            drop(recovering);
             let mut up_since = None;
 
             if let Some(Recovered {
@@ -246,7 +245,7 @@ where
                             break;
                         };
 
-                        match settle(
+                        match settle_or_log_failure(
                             actor_id,
                             &actor,
                             &persistence,
@@ -274,12 +273,12 @@ where
                 }
             }
 
-            let restart = await_restart(
+            let restart = should_restart(
                 actor_id,
                 config.supervision_strategy,
                 up_since,
                 &mut restarts,
-                &parent_stopping_rx,
+                &stopped_by_parent_rx,
                 &mut stopped_by_parent,
                 &mut context,
             )
@@ -296,7 +295,7 @@ where
 }
 
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
-async fn recover<A, E, S, C>(
+async fn recover_or_log_failure<A, E, S, C>(
     actor_id: ActorId,
     actor: &A,
     persistence: &Persistence<E, S, C>,
@@ -312,15 +311,8 @@ where
     let loaded = catch_panic_and_log_async(actor_id, FAILED_TO_RECOVER, async {
         persistence.snapshot_store.load(&id).await
     })
-    .await?;
-    let snapshot = match loaded {
-        Ok(snapshot) => snapshot,
-
-        Err(error) => {
-            error!(%actor_id, %error, source = error.source(), "{FAILED_TO_RECOVER}");
-            return None;
-        }
-    };
+    .await;
+    let snapshot = log_failure(actor_id, FAILED_TO_RECOVER, loaded)?;
 
     let decoded = snapshot.and_then(|stored| {
         let StoredSnapshot {
@@ -382,19 +374,9 @@ where
             read_page(&persistence.event_store, &id, next_seq_no),
         )
         .await;
-        let page = match page {
-            Some(Ok(page)) => page,
-
-            Some(Err(error)) => {
-                error!(%actor_id, %error, source = error.source(), "{FAILED_TO_RECOVER}");
-                drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
-                return None;
-            }
-
-            None => {
-                drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
-                return None;
-            }
+        let Some(page) = log_failure(actor_id, FAILED_TO_RECOVER, page) else {
+            drop_containing_panic(actor_id, STATE_FAILED_TO_DROP, state);
+            return None;
         };
         let page_len = page.len();
 
@@ -415,7 +397,7 @@ where
 }
 
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
-async fn settle<A, E, S, C>(
+async fn settle_or_log_failure<A, E, S, C>(
     actor_id: ActorId,
     actor: &A,
     persistence: &Persistence<E, S, C>,
@@ -448,28 +430,13 @@ where
 
         let appended_events = catch_panic_and_log_async(
             actor_id,
-            "actor failed to append events",
+            FAILED_TO_APPEND,
             append_events(&persistence.event_store, id, next_seq_no, encoded),
         )
         .await;
-        match appended_events {
-            Some(Ok(())) => {}
-
-            Some(Err(error)) => {
-                error!(
-                    %actor_id,
-                    %error,
-                    source = error.source(),
-                    "actor failed to append events"
-                );
-                drop_containing_panic(actor_id, VALUES_FAILED_TO_DROP, (state, events, thens));
-                return None;
-            }
-
-            None => {
-                drop_containing_panic(actor_id, VALUES_FAILED_TO_DROP, (state, events, thens));
-                return None;
-            }
+        if log_failure(actor_id, FAILED_TO_APPEND, appended_events).is_none() {
+            drop_containing_panic(actor_id, VALUES_FAILED_TO_DROP, (state, events, thens));
+            return None;
         }
 
         let appended_count = events.len();
@@ -554,11 +521,9 @@ where
     }
 }
 
-// A store panic must not unwind the task past `terminate`. Only polls are caught: `fut` must be
-// a local async fn or async block, whose construction cannot run store code.
-async fn catch_unwind_async<T, Fut>(fut: Fut) -> Result<T, Box<dyn Any + Send>>
+async fn catch_unwind_async<T, F>(fut: F) -> Result<T, Box<dyn Any + Send>>
 where
-    Fut: Future<Output = T>,
+    F: Future<Output = T>,
 {
     let mut fut = pin!(fut);
 
@@ -627,7 +592,7 @@ where
             let payload = codec.encode(event)?;
 
             Ok(EncodedEvent {
-                manifest: A::Event::MANIFEST.to_string(),
+                manifest: Cow::Borrowed(A::Event::MANIFEST),
                 schema_version: A::Event::VERSION,
                 payload,
             })
@@ -674,7 +639,7 @@ where
     let payload = codec.encode(&snapshot)?;
 
     Ok(Some(EncodedSnapshot {
-        manifest: A::Snapshot::MANIFEST.to_string(),
+        manifest: Cow::Borrowed(A::Snapshot::MANIFEST),
         schema_version: A::Snapshot::VERSION,
         payload,
     }))

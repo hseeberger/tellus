@@ -14,8 +14,8 @@ use crate::persistence::{
 };
 
 /// The persistence wiring for an event-sourced actor: an event store, a snapshot store,
-/// [NoSnapshots] unless one is set, and a codec, [Cbor] unless one is set. The codec reading a
-/// stream must be the one which wrote it.
+/// [NoSnapshots] unless one is set, and a codec, [Cbor] unless one is set. The codec is part of
+/// the stored format: it cannot be changed once events have been written.
 #[derive(Debug, Clone)]
 pub struct Persistence<E, S = NoSnapshots, C = Cbor> {
     pub(crate) event_store: E,
@@ -51,7 +51,7 @@ impl<E, S, C> Persistence<E, S, C> {
         }
     }
 
-    /// Use the given codec instead of the default [Cbor].
+    /// Use the given codec.
     pub fn with_codec<T>(self, codec: T) -> Persistence<E, S, T>
     where
         T: Codec,

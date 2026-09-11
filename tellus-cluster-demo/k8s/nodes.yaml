@@ -1,0 +1,84 @@
+# The five nodes. A StatefulSet rather than a Deployment, which would be the natural default:
+# the verifier, the chaos agent and the per-node URLs all address nodes by name, so the names
+# have to mean the same thing for the whole run. See README.md.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tellus
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  clusterIP: None
+  # Without this only ready pods are in DNS, and a readiness probe gated on membership would
+  # hide every node from every other one: bootstrap would wait for itself.
+  publishNotReadyAddresses: true
+  # Bootstrap counts addresses, and a node is admitted only at the address it advertises: a dual
+  # stack service would answer A and AAAA for every pod and count each node twice.
+  ipFamilyPolicy: SingleStack
+  ipFamilies: [ IPv4 ]
+  selector:
+    app: tellus
+  ports:
+    - name: tellus
+      protocol: UDP
+      port: 7878
+      targetPort: tellus
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tellus
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  serviceName: tellus
+  replicas: 5
+  # The five nodes start at once, as they do under Compose, so bootstrap faces the race it is
+  # meant to survive rather than a convenient rollout.
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: tellus
+  template:
+    metadata:
+      labels:
+        app: tellus
+        app.kubernetes.io/part-of: tellus-cluster-demo
+    spec:
+      serviceAccountName: tellus
+      # Above the node's LEAVE_TIMEOUT, so a graceful delete is a departure and not a crash.
+      terminationGracePeriodSeconds: 20
+      containers:
+        - name: node
+          image: tellus-cluster-demo:latest
+          # The image is loaded with `kind load`, never pulled: :latest would default to Always.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: tellus
+              containerPort: 7878
+              protocol: UDP
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: tellus-discovery
+          env:
+            - name: RUST_LOG
+              value: info
+            - name: CFG__NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: CFG__ENDPOINT__ADVERTISED_ADDR
+              value: "$(POD_IP):7878"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 2
