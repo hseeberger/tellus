@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789326283851,
+  "lastUpdate": 1789326286306,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -2437,6 +2437,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 208366,
             "range": "± 6567",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9a7e5020681c36622c2277dca02f50970f4ad0a4",
+          "message": "Merge pull request #77 from hseeberger/test/faulty-store\n\ntest: replace TestStore with FaultyStore over InMemoryStore",
+          "timestamp": "2026-09-13T22:01:09+03:00",
+          "tree_id": "5625602f3c93c03e3e2c5c5266686129f81c94a9",
+          "url": "https://github.com/hseeberger/tellus/commit/9a7e5020681c36622c2277dca02f50970f4ad0a4"
+        },
+        "date": 1789326285830,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3072361,
+            "range": "± 126171",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3048555,
+            "range": "± 35081",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1106865,
+            "range": "± 13377",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 139855,
+            "range": "± 5204",
             "unit": "ns/iter"
           }
         ]
