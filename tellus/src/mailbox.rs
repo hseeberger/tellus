@@ -23,6 +23,14 @@ impl<M> MailboxHandle<M> {
         Ok(())
     }
 
+    pub(crate) fn try_send_forced_message(&self, message: M) -> Result<(), SendError> {
+        self.incoming_tx
+            .try_send_forced(Incoming::Message(message))
+            .map_err(|_| ActorTerminated)?;
+
+        Ok(())
+    }
+
     pub(crate) fn watcher_registry(&self) -> &WatcherRegistry {
         &self.watcher_registry
     }

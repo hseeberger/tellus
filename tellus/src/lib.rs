@@ -24,6 +24,11 @@
 //! it proves that the watcher has seen every message from that actor it will ever see: each
 //! arrived before the signal or was dropped as a dead letter.
 //!
+//! A [Host] hosts entities: actors identified by a key, spawned on the first [HostEnvelope] for
+//! that key and, if configured, passivated once nothing has messaged them for a while, with
+//! messages arriving meanwhile buffered for their next incarnation. See `docs/actors.md` in the
+//! repository for the guarantees.
+//!
 //! With the `persistence` feature, actors can be event sourced by implementing [EventSourced] and
 //! spawning via [ActorContext::spawn_event_sourced] or [ActorSystem::event_sourced]: commands are
 //! handled against the current state, the events they cause are appended to an [EventStore] and
@@ -46,6 +51,7 @@ mod actor_ref;
 mod actor_system;
 mod ask;
 mod backoff;
+mod host;
 mod mailbox;
 #[cfg(feature = "persistence")]
 mod persistence;
@@ -61,6 +67,7 @@ pub use crate::{
     actor_system::{ActorSystem, Error},
     ask::{AskError, ReplyTo},
     backoff::{Backoff, InvalidBackoff},
+    host::{Host, HostConfig, HostEnvelope, InvalidHostConfig},
 };
 
 #[cfg(feature = "persistence")]

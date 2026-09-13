@@ -36,6 +36,14 @@ impl<T> CountedSender<T> {
         }
     }
 
+    pub(crate) fn try_send_forced(&self, item: T) -> Result<(), Disconnected> {
+        let reservation = self.quota.reserve_forced();
+        self.item_tx.send(item).map_err(|_| Disconnected)?;
+        reservation.commit();
+
+        Ok(())
+    }
+
     pub(crate) fn try_send_uncounted(&self, item: T) -> Result<(), Disconnected> {
         self.item_tx.send(item).map_err(|_| Disconnected)
     }
@@ -96,6 +104,14 @@ impl Quota {
             })
             .map(|_| Reservation(Some(self)))
             .map_err(|_| Full)
+    }
+
+    pub(crate) fn reserve_forced(&self) -> Reservation<'_> {
+        if let Repr::Bounded { count, .. } = &self.0 {
+            count.fetch_add(1, Ordering::Relaxed);
+        }
+
+        Reservation(Some(self))
     }
 
     pub(crate) fn unreserve(&self) {
@@ -236,8 +252,54 @@ mod tests {
         assert!(quota.reserve().is_ok());
     }
 
+    /// A forced item passes a full quota but is counted, so the receiver releases it like any
+    /// other: that is what lets a host drain what it buffered into a mailbox too small for it
+    /// without the count drifting.
+    #[test]
+    fn forced_reserves_past_a_full_quota() {
+        let (item_tx, item_rx) = flume::unbounded();
+        let quota = Quota::bounded(NonZeroUsize::MIN);
+        let item_tx = CountedSender::new(item_tx, quota.clone());
+
+        assert!(item_tx.try_send_counted(1).is_ok());
+        assert!(matches!(
+            item_tx.try_send_counted(2),
+            Err(CountedSendError::Full(_))
+        ));
+
+        assert!(item_tx.try_send_forced(3).is_ok());
+        assert!(item_tx.try_send_forced(4).is_ok());
+        assert_eq!(item_rx.drain().collect::<Vec<_>>(), vec![1, 3, 4]);
+
+        // Everything sent is still counted, so ordinary senders stay refused until the receiver
+        // has released the excess.
+        assert!(matches!(
+            item_tx.try_send_counted(5),
+            Err(CountedSendError::Full(_))
+        ));
+        for _ in 0..3 {
+            quota.unreserve();
+        }
+        assert!(item_tx.try_send_counted(6).is_ok());
+    }
+
+    /// A forced send failing releases its reservation like a counted one, so a disconnect costs
+    /// no capacity on this path either.
+    #[test]
+    fn a_failed_forced_send_releases_its_reservation() {
+        let (item_tx, item_rx) = flume::unbounded();
+        let quota = Quota::bounded(NonZeroUsize::MIN);
+        let item_tx = CountedSender::new(item_tx, quota.clone());
+
+        drop(item_rx);
+        assert!(item_tx.try_send_forced(()).is_err());
+
+        assert!(quota.reserve().is_ok());
+    }
+
     /// An uncounted item passes a full quota and keeps its place behind the counted ones: that is
     /// what lets a terminated signal through a saturated mailbox without overtaking its messages.
+
     #[test]
     fn uncounted_bypasses_a_full_quota() {
         let (item_tx, item_rx) = flume::unbounded();

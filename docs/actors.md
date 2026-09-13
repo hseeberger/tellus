@@ -250,7 +250,9 @@ registry. Dropping a system therefore still stops nothing, since the registry ho
 reference. The root stops where it would stop for a parent, between messages and never inside
 one: the message it is handling is finished first and, for an event sourced actor, so is its
 settlement, so a shutdown can lose the acknowledgement of an event but never the event. Await
-`ActorSystem::terminated` for the tree to be gone.
+`ActorSystem::terminated` for the tree to be gone. Without it a root actor needs a message of its
+own for shutdown, which an actor whose message type is not its own to choose, such as a `Host`,
+cannot have.
 
 ## Supervision and restarts
 
@@ -300,6 +302,56 @@ told to a full bounded mailbox, never entered the queue. Receiving the signal he
 the watcher has seen every message from the terminated actor it will ever see: each arrived
 before the signal or was dropped as a dead letter.
 
+## Hosts
+
+A `Host` hosts entities: actors identified by a key, spawned on the first message for that key
+and, if configured, passivated once nothing has messaged them for a while. Its own messages are
+`HostEnvelope { key, message }`, so a host is spawned like any other actor and its entities are
+addressed through `tell` and `ask` with an envelope. The entities are its children, hence stopping
+it stops them first.
+
+The host is given two functions. `spawn` must spawn a fresh child through the context it is
+handed, on every call, e.g. via `ActorContext::spawn` or `ActorContext::spawn_event_sourced`; it
+must not return an actor it has returned before, nor one from outside the host's subtree. One
+entity per key, stopping the entities with the host and the delivery of buffered messages all rest
+on that, and the signature cannot enforce it. `passivate` builds the message asking an entity to
+stop, since an actor is stopped by itself or by its parent alone; an entity which does not stop on
+that message is never passivated.
+
+Passivation is what makes a host more than a map of references: it frees the memory of entities
+nobody talks to. That is safe only where the entity's state is recoverable or disposable, which is
+the case for event sourced entities, whose next incarnation replays what the store holds.
+
+Since `receive` is synchronous and tellus has no scheduler, the host cannot wake itself on a
+timer, and its own message type is reserved for its entities. It therefore spawns a ticker child
+per period, an actor which stops itself once the idle timeout has elapsed: the terminated signal
+of that child is the sweep. The ticker holds its sleeping task in a guard which aborts it when the
+ticker stops, since terminating an actor does not cancel the tasks it spawned.
+
+A sweep asks every entity idle for at least the timeout to stop, and only an entity whose mailbox
+accepted that message counts as stopping; a full mailbox leaves it live and eligible at the next
+sweep, so a passivate message is never silently lost. An entity which has not stopped by the
+following sweep is logged at debug level as pending, without any claim about why: it may be
+finishing a long command, a recovery or a persistence settlement before it reaches the queued
+message.
+
+While an entity stops, messages for it are buffered rather than sent, since the stopping
+incarnation would process them only by accident. On its terminated signal the host spawns the
+replacement, delivers the buffer in order and only then takes its next message, so one sender's
+order holds across a passivation. The buffer is bounded; beyond it the newest message is refused
+and logged as a dead letter, the way a full mailbox refuses one. The delivery of the buffer forces
+a reservation past the entity's mailbox capacity rather than bypassing the quota, so a mailbox
+smaller than the buffer loses nothing the host accepted and the count stays balanced: the
+receiver releases every forced item like any other, and ordinary senders are refused until it has
+drained back under its capacity.
+
+An entity which stops on its own, e.g. under `SupervisionStrategy::Stop` after a failure, is
+forgotten on its terminated signal and spawned afresh by the next message for its key.
+
+Ownership across nodes is not part of this. A host is local: it is the single node half of the
+sharded regions the roadmap describes, where the owner of a key is computed from the member list
+rather than being wherever the message happened to arrive.
+
 ## Resolving `ActorSystem::terminated`
 
 `spawn_root` in [`actor_system.rs`](../tellus/src/actor_system.rs) spawns the root actor through
@@ -340,3 +392,16 @@ panic-free.
 - Request-response is at-most-once too: `ask` resolves exactly once, with the reply or an error,
   at the latest when its timeout elapses, and never redelivers; a `reply_to` reply is an ordinary
   send, dropped as a dead letter if the asker is gone or its bounded mailbox is full.
+- A host has at most one incarnation of an entity at any time: a replacement is spawned only once
+  the previous one's terminated signal has arrived.
+- A message for an entity which is stopping is enqueued to its next incarnation, in order, up to
+  the configured buffer, whatever that entity's mailbox capacity; beyond the buffer the newest is
+  refused and logged as a dead letter. Enqueued is the whole promise: whether the incarnation
+  processes the message depends on it initialising, or recovering, and on it not stopping first,
+  exactly as for any `tell`.
+- An entity is asked to passivate only once it has been idle for at least the configured timeout,
+  and a host checks that about once per timeout. There is no upper bound on when the entity has
+  stopped: the host's own mailbox, scheduling, the entity finishing the command it is on and, for
+  an event sourced entity, its settlement all come first. An entity which does not stop on its
+  passivate message is never passivated, and messages for it queue in the host's buffer until it
+  does.
