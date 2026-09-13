@@ -1,17 +1,9 @@
-//! Validates the contract suite itself against a minimal in-memory store: with no shipped
-//! reference implementation, this proves the checks are runnable and pass against a store which
-//! follows the contract by construction.
+//! Validates the contract suite itself against [InMemoryStore]: the checks must be runnable and
+//! must pass against a store which follows the contract by construction.
 
-#![cfg(feature = "persistence-tests")]
+#![cfg(all(feature = "persistence-tests", feature = "persistence-in-memory"))]
 
-mod in_memory_store {
-    include!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/support/in_memory_store.rs"
-    ));
-}
-
-use in_memory_store::InMemoryStore;
+use tellus::InMemoryStore;
 
 #[tokio::test]
 async fn event_store_contract() {

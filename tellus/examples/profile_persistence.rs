@@ -11,20 +11,12 @@
 //! allocates by design (payload buffers, manifests), so read the alloc report as a budget, not a
 //! zero check.
 
-mod in_memory_store {
-    include!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/support/in_memory_store.rs"
-    ));
-}
-
 use anyhow::Context;
-use in_memory_store::InMemoryStore;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use tellus::{
-    ActorContext, ActorSystem, Effect, EventSourced, Incoming, Persistence, PersistenceId,
-    SchemaVersion, Versioned,
+    ActorContext, ActorSystem, Effect, EventSourced, InMemoryStore, Incoming, Persistence,
+    PersistenceId, SchemaVersion, Versioned,
 };
 
 const EVENTS: u64 = 50_000;

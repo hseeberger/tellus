@@ -7,9 +7,11 @@ nightly := `rustc --version | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sed 's/^/n
 bench_regression_threshold := "0.15"
 
 # The feature powerset for `tellus`, minus what cargo-hack cannot know: `hotpath` is orthogonal
-# instrumentation, and `persistence-tests` is an implication, not a combination.
-powerset := "--feature-powerset --exclude-features hotpath,hotpath-alloc " + \
-    "--mutually-exclusive-features persistence,persistence-tests"
+# instrumentation. Do not exclude `persistence` against a feature which implies it: cargo-hack
+# resolves a group, so that also drops `persistence-tests,persistence-in-memory`, the one
+# combination which compiles tests/persistence_tests.rs. Implications need no group anyway, since
+# cargo-hack drops a combination whose features resolve to the same set.
+powerset := "--feature-powerset --exclude-features hotpath,hotpath-alloc"
 
 check:
     cargo hack check -p tellus                      --all-targets {{ powerset }}
@@ -40,7 +42,8 @@ test:
     cargo test -p tellus
     cargo test -p tellus                      --features serde
     cargo test -p tellus                      --features persistence
-    cargo test -p tellus                      --features persistence-tests
+    cargo test -p tellus                      --features persistence-in-memory
+    cargo test -p tellus                      --features "persistence-tests,persistence-in-memory"
     cargo test -p tellus                      --all-features
     cargo test -p tellus-persistence-postgres
 
@@ -77,7 +80,7 @@ run-examples-event-sourced-supervision:
 
 bench:
     cargo bench -p tellus --bench messaging
-    cargo bench -p tellus --features persistence --bench persistence
+    cargo bench -p tellus --features "persistence,persistence-in-memory" --bench persistence
 
 bench-save baseline:
     cargo bench -p tellus --bench messaging -- --save-baseline {{ baseline }}
@@ -86,16 +89,16 @@ bench-compare baseline:
     cargo bench -p tellus --bench messaging -- --baseline-lenient {{ baseline }}
 
 bench-persistence-save baseline:
-    cargo bench -p tellus --features persistence --bench persistence -- --save-baseline {{ baseline }}
+    cargo bench -p tellus --features "persistence,persistence-in-memory" --bench persistence -- --save-baseline {{ baseline }}
 
 bench-persistence-compare baseline:
-    cargo bench -p tellus --features persistence --bench persistence -- --baseline-lenient {{ baseline }}
+    cargo bench -p tellus --features "persistence,persistence-in-memory" --bench persistence -- --baseline-lenient {{ baseline }}
 
 bench-bencher:
     cargo bench -p tellus --bench messaging -- --output-format bencher
 
 bench-persistence-bencher:
-    cargo bench -p tellus --features persistence --bench persistence -- --output-format bencher
+    cargo bench -p tellus --features "persistence,persistence-in-memory" --bench persistence -- --output-format bencher
 
 bench-report:
     #!/usr/bin/env bash
@@ -128,10 +131,10 @@ profile-alloc:
     cargo run --release -p tellus --example profile --features hotpath-alloc
 
 profile-persistence:
-    cargo run --release -p tellus --example profile_persistence --features "hotpath,persistence"
+    cargo run --release -p tellus --example profile_persistence --features "hotpath,persistence,persistence-in-memory"
 
 profile-persistence-alloc:
-    cargo run --release -p tellus --example profile_persistence --features "hotpath-alloc,persistence"
+    cargo run --release -p tellus --example profile_persistence --features "hotpath-alloc,persistence,persistence-in-memory"
 
 profile-alloc-gate out="target/hotpath/profile.json":
     #!/usr/bin/env bash

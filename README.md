@@ -39,7 +39,8 @@ cargo add tellus
   getting started and the core concepts.
 - [`tellus-persistence-postgres`](tellus-persistence-postgres): PostgreSQL event and snapshot
   stores for tellus persistence. The contract test suite any store implementation must pass ships
-  with `tellus` itself, behind the `persistence-tests` feature.
+  with `tellus` itself, behind the `persistence-tests` feature, and an in-memory store for tests
+  behind `persistence-in-memory`.
 - [`tellus-comparison`](tellus-comparison): messaging benchmarks comparing tellus against
   [kameo](https://crates.io/crates/kameo) and [ractor](https://crates.io/crates/ractor). See
   [its README](tellus-comparison/README.md) for the methodology, fairness rules and caveats and the
