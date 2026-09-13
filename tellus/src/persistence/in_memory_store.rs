@@ -201,7 +201,7 @@ mod tests {
 
     fn event(n: u8) -> EncodedEvent {
         EncodedEvent {
-            manifest: "in-memory-event".to_string(),
+            manifest: "in-memory-event".into(),
             schema_version: SchemaVersion::new(1),
             payload: vec![n],
         }
@@ -209,7 +209,7 @@ mod tests {
 
     fn snapshot() -> EncodedSnapshot {
         EncodedSnapshot {
-            manifest: "in-memory-snapshot".to_string(),
+            manifest: "in-memory-snapshot".into(),
             schema_version: SchemaVersion::new(1),
             payload: vec![0xFF],
         }

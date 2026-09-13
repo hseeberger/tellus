@@ -116,10 +116,10 @@ jobs:
         with:
           toolchain: ${{ needs.toolchain.outputs.stable }}
 
-      - name: Install just
+      - name: Install just and cargo-hack
         uses: taiki-e/install-action@0758d235715de2f3551eacc980d9ae8fce9342c3 # v2.87.3
         with:
-          tool: just
+          tool: just,cargo-hack
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2

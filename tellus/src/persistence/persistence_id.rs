@@ -25,8 +25,10 @@ pub struct PersistenceId {
 }
 
 impl PersistenceId {
-    /// Create a persistence ID from the given entity type and entity ID; fails if a segment is
-    /// empty, longer than 255 bytes or contains a slash.
+    /// Create a persistence ID from the given entity type and entity ID.
+    ///
+    /// # Errors
+    /// Fails if a segment is empty, longer than 255 bytes or contains a slash.
     pub fn new<T, I>(entity_type: T, entity_id: I) -> Result<Self, InvalidPersistenceId>
     where
         T: AsRef<str>,
@@ -59,7 +61,6 @@ impl FromStr for PersistenceId {
         let (entity_type, entity_id) = s
             .split_once('/')
             .ok_or(InvalidPersistenceId::MissingSeparator)?;
-
         Self::new(entity_type, entity_id)
     }
 }
@@ -134,7 +135,7 @@ fn valid_segment(value: &str, segment: PersistenceIdSegment) -> Result<&str, Inv
 #[cfg(test)]
 mod tests {
     use crate::persistence::persistence_id::{
-        InvalidPersistenceId, PersistenceId, PersistenceIdSegment,
+        InvalidPersistenceId, MAX_SEGMENT_LEN, PersistenceId, PersistenceIdSegment,
     };
 
     /// The display shape `entity_type/entity_id` parses back into the same ID, so the string form
@@ -167,13 +168,13 @@ mod tests {
             })
         );
         assert_eq!(
-            PersistenceId::new("a".repeat(256), "42"),
+            PersistenceId::new("a".repeat(MAX_SEGMENT_LEN + 1), "42"),
             Err(InvalidPersistenceId::SegmentTooLong {
                 segment: PersistenceIdSegment::EntityType
             })
         );
         assert_eq!(
-            PersistenceId::new("order", "a".repeat(256)),
+            PersistenceId::new("order", "a".repeat(MAX_SEGMENT_LEN + 1)),
             Err(InvalidPersistenceId::SegmentTooLong {
                 segment: PersistenceIdSegment::EntityId
             })
@@ -194,6 +195,14 @@ mod tests {
             "order-42".parse::<PersistenceId>(),
             Err(InvalidPersistenceId::MissingSeparator)
         );
+    }
+
+    /// The limit is inclusive: a segment of exactly the maximum length is accepted, so an
+    /// off-by-one in the check is caught rather than only its rejecting side.
+    #[test]
+    fn a_segment_of_the_maximum_length_is_accepted() {
+        assert!(PersistenceId::new("a".repeat(MAX_SEGMENT_LEN), "42").is_ok());
+        assert!(PersistenceId::new("order", "a".repeat(MAX_SEGMENT_LEN)).is_ok());
     }
 
     /// The serde representation is the display string, not the struct: a persistence ID travels

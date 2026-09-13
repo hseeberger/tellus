@@ -1,0 +1,161 @@
+name: tellus-cluster-demo
+
+x-node: &node
+  image: tellus-cluster-demo:latest
+  # NET_ADMIN is what pumba's netem needs to install the tc rules cutting the cluster network.
+  cap_add:
+    - NET_ADMIN
+  restart: unless-stopped
+  environment: &node-env
+    RUST_LOG: ${RUST_LOG:-info}
+    CONFIG_OVERLAYS: dns
+
+services:
+  node1:
+    <<: *node
+    container_name: tellus-demo-node1
+    build:
+      context: ..
+      dockerfile: tellus-cluster-demo/Dockerfile
+    environment:
+      <<: *node-env
+      CFG__NODE_NAME: node1
+      CFG__ENDPOINT__ADVERTISED_ADDR: 172.28.0.11:7878
+    ports:
+      - "8091:8080"
+    networks:
+      cluster:
+        ipv4_address: 172.28.0.11
+        aliases:
+          - tellus
+      edge: {}
+
+  node2:
+    <<: *node
+    container_name: tellus-demo-node2
+    environment:
+      <<: *node-env
+      CFG__NODE_NAME: node2
+      CFG__ENDPOINT__ADVERTISED_ADDR: 172.28.0.12:7878
+    ports:
+      - "8092:8080"
+    networks:
+      cluster:
+        ipv4_address: 172.28.0.12
+        aliases:
+          - tellus
+      edge: {}
+
+  node3:
+    <<: *node
+    container_name: tellus-demo-node3
+    environment:
+      <<: *node-env
+      CFG__NODE_NAME: node3
+      CFG__ENDPOINT__ADVERTISED_ADDR: 172.28.0.13:7878
+    ports:
+      - "8093:8080"
+    networks:
+      cluster:
+        ipv4_address: 172.28.0.13
+        aliases:
+          - tellus
+      edge: {}
+
+  node4:
+    <<: *node
+    container_name: tellus-demo-node4
+    environment:
+      <<: *node-env
+      CFG__NODE_NAME: node4
+      CFG__ENDPOINT__ADVERTISED_ADDR: 172.28.0.14:7878
+    ports:
+      - "8094:8080"
+    networks:
+      cluster:
+        ipv4_address: 172.28.0.14
+        aliases:
+          - tellus
+      edge: {}
+
+  node5:
+    <<: *node
+    container_name: tellus-demo-node5
+    environment:
+      <<: *node-env
+      CFG__NODE_NAME: node5
+      CFG__ENDPOINT__ADVERTISED_ADDR: 172.28.0.15:7878
+    ports:
+      - "8095:8080"
+    networks:
+      cluster:
+        ipv4_address: 172.28.0.15
+        aliases:
+          - tellus
+      edge: {}
+
+  lb:
+    image: caddy:2.11-alpine
+    container_name: tellus-demo-lb
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "8080:80"
+    networks:
+      - edge
+    depends_on:
+      - node1
+      - node2
+      - node3
+      - node4
+      - node5
+
+  verifier:
+    image: tellus-cluster-demo:latest
+    container_name: tellus-demo-verifier
+    command: [ "verifier" ]
+    restart: unless-stopped
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      TELLUS_NODES: http://node1:8080,http://node2:8080,http://node3:8080,http://node4:8080,http://node5:8080
+      TELLUS_LB: http://lb
+      TELLUS_CHAOS_STATE: /chaos/state
+      TELLUS_SETTLE_SECS: "30"
+      TELLUS_LB_OUTAGE_SECS: "5"
+    volumes:
+      - chaos:/chaos:ro
+    ports:
+      - "8081:8080"
+    networks:
+      - edge
+    depends_on:
+      - lb
+
+  chaos:
+    image: docker:29.7-cli
+    container_name: tellus-demo-chaos
+    entrypoint: [ "/bin/sh", "/chaos.sh" ]
+    restart: unless-stopped
+    environment:
+      STARTUP_SECS: "45"
+      QUIET_SECS: "45"
+      DEAD_SECS: "20"
+      PARTITION_SECS: "45"
+      RECOVERY_SECS: "25"
+    volumes:
+      - ./chaos.sh:/chaos.sh:ro
+      - chaos:/chaos
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - verifier
+
+networks:
+  cluster:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+  edge: {}
+
+volumes:
+  chaos:

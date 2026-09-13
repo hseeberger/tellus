@@ -221,7 +221,7 @@ fn parameter_order(measurement: &Measurement) -> ParameterOrder<'_> {
     }
 }
 
-// Derived `Ord` compares by variant first, hence the declaration order is the sort order.
+/// Derived `Ord` compares by variant first, hence the declaration order is the sort order.
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum ParameterOrder<'a> {
     Missing,
@@ -298,7 +298,7 @@ fn read_versions() -> anyhow::Result<BTreeMap<String, String>> {
     Ok(versions)
 }
 
-// Keep the caveats below in sync with the ones in the README.
+/// Keep the caveats below in sync with the ones in the README.
 fn render_html(report: &Report) -> String {
     let sections = report
         .measurements
