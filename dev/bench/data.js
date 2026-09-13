@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789286845143,
+  "lastUpdate": 1789286847486,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -2005,6 +2005,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 141287,
             "range": "± 3988",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f0a42030e28cbc1a66090cefda4d1c2b836939c2",
+          "message": "Merge pull request #72 from hseeberger/feat/actor-system-stop\n\nfeat: stop an actor system from the outside",
+          "timestamp": "2026-09-13T11:03:13+03:00",
+          "tree_id": "0489674a649d1aac43dfc1308fc89f3b6e35bf9e",
+          "url": "https://github.com/hseeberger/tellus/commit/f0a42030e28cbc1a66090cefda4d1c2b836939c2"
+        },
+        "date": 1789286846985,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3088153,
+            "range": "± 17263",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3039018,
+            "range": "± 39100",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1758410,
+            "range": "± 8560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 213984,
+            "range": "± 6314",
             "unit": "ns/iter"
           }
         ]
