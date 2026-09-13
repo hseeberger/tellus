@@ -1,6 +1,8 @@
 pub(crate) mod codec;
 pub(crate) mod effect;
 pub(crate) mod event_sourced;
+#[cfg(feature = "persistence-in-memory")]
+pub(crate) mod in_memory_store;
 pub(crate) mod persistence_id;
 pub(crate) mod schema_version;
 pub(crate) mod seq_no;

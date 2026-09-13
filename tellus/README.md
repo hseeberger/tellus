@@ -241,8 +241,10 @@ only then folded into the state by `apply`, and after a crash or a restart the s
 by replaying the events, optionally shortcut by snapshots. The stores are pluggable;
 [`tellus-persistence-postgres`](../tellus-persistence-postgres) provides PostgreSQL-backed ones, and
 the `persistence-tests` feature adds the contract test suite any store implementation must pass,
-meant for a backend crate's integration tests. For the guarantees, from replay equals live
-execution to fencing and schema evolution, see [docs/persistence.md](../docs/persistence.md).
+meant for a backend crate's integration tests. The `persistence-in-memory` feature adds
+`InMemoryStore`, which keeps events and snapshots in memory, so event-sourced actors can be tested
+without a database. For the guarantees, from replay equals live execution to fencing and schema
+evolution, see [docs/persistence.md](../docs/persistence.md).
 
 ## Examples
 

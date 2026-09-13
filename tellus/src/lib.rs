@@ -29,7 +29,9 @@
 //! handled against the current state, the events they cause are appended to an [EventStore] and
 //! only then applied, and the state is recovered by replay, optionally shortcut by snapshots. See
 //! `docs/persistence.md` in the repository for the guarantees. The `persistence-tests` feature
-//! adds [persistence_tests], the contract test suite any store implementation must pass.
+//! adds [persistence_tests], the contract test suite any store implementation must pass, and the
+//! `persistence-in-memory` feature adds [InMemoryStore], which keeps events and snapshots in
+//! memory, for testing event-sourced actors without a database.
 
 #![warn(missing_docs)]
 
@@ -76,3 +78,6 @@ pub use crate::persistence::{
     },
     versioned::{DecodeError, Versioned},
 };
+
+#[cfg(feature = "persistence-in-memory")]
+pub use crate::persistence::in_memory_store::InMemoryStore;

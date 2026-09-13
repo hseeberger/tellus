@@ -9,23 +9,15 @@
 //! All benchmarks run on a Tokio runtime with a fixed worker thread count, so measurements do not
 //! depend on the host's core count.
 
-mod in_memory_store {
-    include!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/support/in_memory_store.rs"
-    ));
-}
-
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use in_memory_store::InMemoryStore;
 use serde::{Deserialize, Serialize};
 use std::{
     convert::Infallible,
     time::{Duration, Instant},
 };
 use tellus::{
-    ActorContext, ActorSystem, Effect, EventSourced, Incoming, Persistence, PersistenceId,
-    SchemaVersion, Versioned,
+    ActorContext, ActorSystem, Effect, EventSourced, InMemoryStore, Incoming, Persistence,
+    PersistenceId, SchemaVersion, Versioned,
 };
 use tokio::runtime::{Builder, Runtime};
 

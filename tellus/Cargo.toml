@@ -14,11 +14,12 @@ publish       = true
 all-features = true
 
 [features]
-hotpath           = [ "dep:hotpath", "hotpath/hotpath" ]
-hotpath-alloc     = [ "hotpath", "hotpath/hotpath-alloc" ]
-persistence       = [ "dep:ciborium", "dep:serde", "dep:serde_json", "dep:trait-variant" ]
-persistence-tests = [ "persistence" ]
-serde             = [ "dep:humantime-serde", "dep:serde" ]
+hotpath               = [ "dep:hotpath", "hotpath/hotpath" ]
+hotpath-alloc         = [ "hotpath", "hotpath/hotpath-alloc" ]
+persistence           = [ "dep:ciborium", "dep:serde", "dep:serde_json", "dep:trait-variant" ]
+persistence-in-memory = [ "persistence" ]
+persistence-tests     = [ "persistence" ]
+serde                 = [ "dep:humantime-serde", "dep:serde" ]
 
 [dependencies]
 ciborium        = { workspace = true, optional = true }
@@ -48,7 +49,7 @@ required-features = [ "hotpath" ]
 
 [[example]]
 name              = "profile_persistence"
-required-features = [ "hotpath", "persistence" ]
+required-features = [ "hotpath", "persistence", "persistence-in-memory" ]
 
 [[bench]]
 name    = "messaging"
@@ -57,4 +58,4 @@ harness = false
 [[bench]]
 name              = "persistence"
 harness           = false
-required-features = [ "persistence" ]
+required-features = [ "persistence", "persistence-in-memory" ]

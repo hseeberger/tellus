@@ -18,7 +18,9 @@ shortcut for that replay, a discardable derivative of the events, never a source
 
 The stores are pluggable behind two traits, [`EventStore` and
 `SnapshotStore`](../tellus/src/persistence/store.rs), which operate on encoded bytes;
-implementations live in separate backend crates. Everything below holds for any conforming store.
+implementations live in separate backend crates, except the in-memory one for tests, which
+`tellus` provides behind the `persistence-in-memory` feature. Everything below holds for any
+conforming store.
 
 ## Defining an event-sourced actor
 

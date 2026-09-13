@@ -67,18 +67,19 @@ jobs:
           git checkout "$GITHUB_SHA" -- justfile
           just bench-save main
 
-      # The merge base may predate the persistence benchmark; then there is no baseline, the head
-      # run below is skipped and the report simply carries no persistence rows for this PR. Only
-      # that case is skipped: a failing benchmark run still fails the job, so a transient failure
+      # The merge base may predate the persistence benchmark, or the features its recipe asks for,
+      # since only the justfile is taken from the head; then there is no baseline, the head run
+      # below is skipped and the report simply carries no persistence rows for this PR. Only those
+      # cases are skipped: a failing benchmark run still fails the job, so a transient failure
       # cannot silently drop the persistence rows from bench-compare and bench-report.
       - name: Benchmark merge base (persistence)
         id: base-persistence
         run: |
-          if [ -f tellus/benches/persistence.rs ]; then
+          if [ -f tellus/benches/persistence.rs ] && grep -q persistence-in-memory tellus/Cargo.toml; then
             just bench-persistence-save main
             echo "baseline=true" >> "$GITHUB_OUTPUT"
           else
-            echo "the merge base predates the persistence benchmark; skipping the baseline"
+            echo "the merge base predates the persistence benchmark or its features; skipping the baseline"
             echo "baseline=false" >> "$GITHUB_OUTPUT"
           fi
 
