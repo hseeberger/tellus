@@ -3,7 +3,8 @@
 This document defines the guarantees of tellus persistence: event sourcing with optional
 snapshots, behind the `persistence` feature. The implementation lives in
 [`tellus/src/persistence`](../tellus/src/persistence) and the integration tests in
-[`persistence.rs`](../tellus/tests/persistence.rs) encode these guarantees; everything builds on
+[`persistence.rs`](../tellus/tests/persistence.rs), which runs them over the in-memory store of
+the `persistence-in-memory` feature, encode these guarantees; everything builds on
 the mechanics and guarantees of [actors.md](actors.md).
 
 ## Overview

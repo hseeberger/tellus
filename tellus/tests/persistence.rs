@@ -1,8 +1,7 @@
-#![cfg(feature = "persistence")]
+#![cfg(feature = "persistence-in-memory")]
 
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
     convert::Infallible,
     future::pending,
     num::{NonZeroU32, NonZeroUsize},
@@ -11,9 +10,9 @@ use std::{
 };
 use tellus::{
     Actor, ActorConfig, ActorContext, ActorRef, ActorSystem, AppendError, Backoff, Cbor, Codec,
-    Control, Effect, EncodedEvent, EncodedSnapshot, EventSourced, EventStore, Incoming, Nothing,
-    Persistence, PersistenceId, ReplyTo, RestartPolicy, SchemaVersion, SeqNo, SnapshotStore,
-    StoredEvent, StoredSnapshot, SupervisionStrategy, Versioned,
+    Control, Effect, EncodedEvent, EncodedSnapshot, EventSourced, EventStore, InMemoryStore,
+    Incoming, Nothing, Persistence, PersistenceId, ReplyTo, RestartPolicy, SchemaVersion, SeqNo,
+    SnapshotStore, StoredEvent, StoredSnapshot, SupervisionStrategy, Versioned,
 };
 use thiserror::Error;
 use tokio::{
@@ -28,7 +27,7 @@ const TIMEOUT: Duration = Duration::from_secs(5);
 /// answers with the same count, seeded by `init` and folded by `apply` alone.
 #[tokio::test]
 async fn replay_reconstructs_the_live_state() {
-    let store = TestStore::default();
+    let store = FaultyStore::default();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced(
@@ -54,7 +53,7 @@ async fn replay_reconstructs_the_live_state() {
     assert_terminates(system, "first incarnation did not terminate").await;
 
     let id = persistence_id("1");
-    let events = store.stream(&id);
+    let events = store.inner().events(&id);
     assert_eq!(events.len(), 4);
     assert_eq!(
         events.last().map(|stored| stored.seq_no),
@@ -80,7 +79,7 @@ async fn replay_reconstructs_the_live_state() {
 /// also shortens replay: the second incarnation reads only the events after it.
 #[tokio::test]
 async fn snapshots_skip_init_and_shorten_replay() {
-    let store = TestStore::default();
+    let store = FaultyStore::default();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced(
@@ -149,7 +148,7 @@ async fn snapshots_skip_init_and_shorten_replay() {
 /// snapshot stored the next recovery seeds via `init` and replays in full.
 #[tokio::test]
 async fn a_failed_snapshot_save_never_fails_the_actor() {
-    let store = TestStore::default().with_failing_saves();
+    let store = FaultyStore::default().with_failing_saves();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced(
@@ -201,7 +200,7 @@ async fn a_failed_snapshot_save_never_fails_the_actor() {
 /// keep settling and every recovery replays in full.
 #[tokio::test]
 async fn an_offered_snapshot_without_a_store_is_dropped() {
-    let store = TestStore::default();
+    let store = FaultyStore::default();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced(
@@ -252,7 +251,7 @@ async fn an_offered_snapshot_without_a_store_is_dropped() {
 /// and restart, replaying the events emits no continuation probes.
 #[tokio::test]
 async fn continuations_never_run_on_replay() {
-    let store = TestStore::default();
+    let store = FaultyStore::default();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced_with_config(
@@ -310,7 +309,7 @@ async fn continuations_never_run_on_replay() {
 /// winner's events instead of overwriting them; the conflicting command is consumed.
 #[tokio::test]
 async fn append_conflict_restarts_onto_the_winners_events() {
-    let store = TestStore::default();
+    let store = FaultyStore::default();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced_with_config(
@@ -362,7 +361,7 @@ async fn append_conflict_restarts_onto_the_winners_events() {
 /// append failed is consumed, its event never appended.
 #[tokio::test]
 async fn an_append_store_failure_restarts_and_consumes_the_command() {
-    let store = TestStore::default().with_append_failures(1);
+    let store = FaultyStore::default().with_append_failures(1);
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced_with_config(
@@ -414,7 +413,7 @@ async fn an_append_store_failure_restarts_and_consumes_the_command() {
 /// command whose append panicked is consumed.
 #[tokio::test]
 async fn an_append_store_panic_restarts_and_consumes_the_command() {
-    let store = TestStore::default().with_append_panics(1);
+    let store = FaultyStore::default().with_append_panics(1);
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced_with_config(
@@ -472,7 +471,7 @@ async fn an_append_store_panic_restarts_and_consumes_the_command() {
 /// whose store read hangs forever aborts the replay instead of stalling termination.
 #[tokio::test]
 async fn a_parent_stop_aborts_a_hung_recovery() {
-    let store = TestStore::default().with_hanging_reads();
+    let store = FaultyStore::default().with_hanging_reads();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::new(Parent {
@@ -482,6 +481,11 @@ async fn a_parent_stop_aborts_a_hung_recovery() {
     assert_eq!(recv(&mut probe_rx, "no init probe").await, Probe::Init);
 
     sleep(Duration::from_millis(50)).await;
+    assert!(
+        probe_rx.try_recv().is_err(),
+        "recovery must still be hung: no probe may follow init"
+    );
+
     system.root().tell(());
     assert_terminates(system, "termination must not wait for the hung recovery").await;
 }
@@ -490,7 +494,7 @@ async fn a_parent_stop_aborts_a_hung_recovery() {
 /// runs recovery again, and once `recovered` succeeds the actor handles commands normally.
 #[tokio::test]
 async fn a_recovered_failure_restarts_into_a_working_actor() {
-    let store = TestStore::default();
+    let store = FaultyStore::default();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced_with_config(
@@ -525,7 +529,7 @@ async fn a_recovered_failure_restarts_into_a_working_actor() {
 /// never the event.
 #[tokio::test]
 async fn stopping_a_system_lets_an_append_settle() {
-    let store = TestStore::default().with_append_delay(Duration::from_millis(50));
+    let store = FaultyStore::default().with_append_delay(Duration::from_millis(50));
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system = ActorSystem::event_sourced(
@@ -558,7 +562,7 @@ async fn stopping_a_system_lets_an_append_settle() {
 /// is handled, even while the append itself is slow.
 #[tokio::test]
 async fn a_command_settles_before_the_next_is_handled() {
-    let store = TestStore::default().with_append_delay(Duration::from_millis(20));
+    let store = FaultyStore::default().with_append_delay(Duration::from_millis(20));
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let system =
@@ -602,7 +606,7 @@ async fn terminated_signals_reach_handle() {
             probe_tx,
             bye_before_stopping: false,
         },
-        Persistence::new(TestStore::default()),
+        Persistence::new(FaultyStore::default()),
     );
 
     system.root().tell(WatcherCommand::StopChild);
@@ -626,7 +630,7 @@ async fn unwatch_drops_an_enqueued_terminated_signal() {
             probe_tx,
             bye_before_stopping: true,
         },
-        Persistence::new(TestStore::default()),
+        Persistence::new(FaultyStore::default()),
     );
 
     system.root().tell(WatcherCommand::StopChild);
@@ -650,30 +654,32 @@ async fn unwatch_drops_an_enqueued_terminated_signal() {
 /// replay seeded by `init`, and the state still comes out right.
 #[tokio::test]
 async fn undecodable_snapshot_falls_back_to_full_replay() {
-    let store = TestStore::default();
+    let store = FaultyStore::default();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let id = persistence_id("7");
-    for (seq_no, increment) in [(0, 1), (1, 2)] {
-        store.seed(
+    store
+        .inner()
+        .append(
             &id,
-            StoredEvent {
-                seq_no: SeqNo::new(seq_no),
-                event: encoded(&Increased(increment)),
-            },
-        );
-    }
-    store.seed_snapshot(
-        &id,
-        StoredSnapshot {
-            next_seq_no: SeqNo::new(2),
-            snapshot: EncodedSnapshot {
+            SeqNo::ZERO,
+            vec![encoded(&Increased(1)), encoded(&Increased(2))],
+        )
+        .await
+        .expect("the seeded events are appended");
+    store
+        .inner()
+        .save(
+            &id,
+            SeqNo::new(2),
+            EncodedSnapshot {
                 manifest: Count::MANIFEST.to_string(),
                 schema_version: SchemaVersion::new(99),
                 payload: Vec::new(),
             },
-        },
-    );
+        )
+        .await
+        .expect("the seeded snapshot is saved");
 
     let system = ActorSystem::event_sourced(
         Counter::new("7", probe_tx),
@@ -700,21 +706,23 @@ async fn undecodable_snapshot_falls_back_to_full_replay() {
 /// strategy the actor stops without ever running `recovered`, and its watchers learn about it.
 #[tokio::test]
 async fn undecodable_history_stops_the_actor() {
-    let store = TestStore::default();
+    let store = FaultyStore::default();
     let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
 
     let id = persistence_id("6");
-    store.seed(
-        &id,
-        StoredEvent {
-            seq_no: SeqNo::ZERO,
-            event: EncodedEvent {
+    store
+        .inner()
+        .append(
+            &id,
+            SeqNo::ZERO,
+            vec![EncodedEvent {
                 manifest: Increased::MANIFEST.to_string(),
                 schema_version: SchemaVersion::new(99),
                 payload: Vec::new(),
-            },
-        },
-    );
+            }],
+        )
+        .await
+        .expect("the seeded event is appended");
 
     let system =
         ActorSystem::event_sourced(Counter::new("6", probe_tx), Persistence::new(store.clone()));
@@ -1035,7 +1043,7 @@ impl Actor for Child {
 }
 
 struct Parent {
-    store: TestStore,
+    store: FaultyStore,
     probe_tx: mpsc::UnboundedSender<Probe>,
 }
 
@@ -1066,10 +1074,12 @@ impl Actor for Parent {
     }
 }
 
+/// An [InMemoryStore] which can be made to misbehave: appends can be delayed, fail or panic a
+/// given number of times, reads can hang forever and snapshot saves can fail. Reads are logged,
+/// so a test can assert which positions a replay asked for.
 #[derive(Debug, Clone, Default)]
-struct TestStore {
-    streams: Arc<Mutex<HashMap<PersistenceId, Vec<StoredEvent>>>>,
-    snapshots: Arc<Mutex<HashMap<PersistenceId, StoredSnapshot>>>,
+struct FaultyStore {
+    inner: InMemoryStore,
     reads: Arc<Mutex<Vec<SeqNo>>>,
     append_delay: Option<Duration>,
     append_failures: Arc<Mutex<u32>>,
@@ -1078,7 +1088,7 @@ struct TestStore {
     fail_saves: bool,
 }
 
-impl TestStore {
+impl FaultyStore {
     fn with_append_delay(mut self, append_delay: Duration) -> Self {
         self.append_delay = Some(append_delay);
         self
@@ -1104,29 +1114,8 @@ impl TestStore {
         self
     }
 
-    fn seed(&self, id: &PersistenceId, stored: StoredEvent) {
-        self.streams
-            .lock()
-            .expect("streams lock poisoned")
-            .entry(id.clone())
-            .or_default()
-            .push(stored);
-    }
-
-    fn seed_snapshot(&self, id: &PersistenceId, stored: StoredSnapshot) {
-        self.snapshots
-            .lock()
-            .expect("snapshots lock poisoned")
-            .insert(id.clone(), stored);
-    }
-
-    fn stream(&self, id: &PersistenceId) -> Vec<StoredEvent> {
-        self.streams
-            .lock()
-            .expect("streams lock poisoned")
-            .get(id)
-            .cloned()
-            .unwrap_or_default()
+    fn inner(&self) -> &InMemoryStore {
+        &self.inner
     }
 
     fn reads(&self) -> Vec<SeqNo> {
@@ -1134,8 +1123,8 @@ impl TestStore {
     }
 }
 
-impl EventStore for TestStore {
-    type Error = TestStoreError;
+impl EventStore for FaultyStore {
+    type Error = FaultyStoreError;
 
     async fn append(
         &self,
@@ -1154,11 +1143,12 @@ impl EventStore for TestStore {
                 .expect("append failures lock poisoned");
             if *failures > 0 {
                 *failures -= 1;
-                return Err(AppendError::Store(TestStoreError));
+                return Err(AppendError::Store(FaultyStoreError));
             }
         }
 
-        // Panic outside the lock scope, else the poisoned lock fails every later append.
+        // Panic outside the lock scope, else the poisoned lock fails every later append. The
+        // scopes also keep the guards off the delegating await below, which must stay Send.
         let panic = {
             let mut panics = self
                 .append_panics
@@ -1175,20 +1165,13 @@ impl EventStore for TestStore {
             panic!("append panicked");
         }
 
-        let mut streams = self.streams.lock().expect("streams lock poisoned");
-        let stream = streams.entry(id.clone()).or_default();
-        if SeqNo::new(stream.len() as u64) != next_seq_no {
-            return Err(AppendError::Conflict);
-        }
-
-        for (n, event) in events.into_iter().enumerate() {
-            stream.push(StoredEvent {
-                seq_no: next_seq_no.advanced_by(n),
-                event,
-            });
-        }
-
-        Ok(())
+        self.inner
+            .append(id, next_seq_no, events)
+            .await
+            .map_err(|error| match error {
+                AppendError::Conflict => AppendError::Conflict,
+                AppendError::Store(error) => match error {},
+            })
     }
 
     async fn read(
@@ -1206,25 +1189,15 @@ impl EventStore for TestStore {
             .expect("reads lock poisoned")
             .push(from_seq_no);
 
-        let streams = self.streams.lock().expect("streams lock poisoned");
-        let events = streams
-            .get(id)
-            .map(|stream| {
-                stream
-                    .iter()
-                    .filter(|stored| stored.seq_no >= from_seq_no)
-                    .take(limit.get())
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        Ok(events)
+        self.inner
+            .read(id, from_seq_no, limit)
+            .await
+            .map_err(|error| match error {})
     }
 }
 
-impl SnapshotStore for TestStore {
-    type Error = TestStoreError;
+impl SnapshotStore for FaultyStore {
+    type Error = FaultyStoreError;
 
     async fn save(
         &self,
@@ -1233,35 +1206,20 @@ impl SnapshotStore for TestStore {
         snapshot: EncodedSnapshot,
     ) -> Result<(), Self::Error> {
         if self.fail_saves {
-            return Err(TestStoreError);
+            return Err(FaultyStoreError);
         }
 
-        self.snapshots
-            .lock()
-            .expect("snapshots lock poisoned")
-            .insert(
-                id.clone(),
-                StoredSnapshot {
-                    next_seq_no,
-                    snapshot,
-                },
-            );
-
-        Ok(())
+        self.inner
+            .save(id, next_seq_no, snapshot)
+            .await
+            .map_err(|error| match error {})
     }
 
     async fn load(&self, id: &PersistenceId) -> Result<Option<StoredSnapshot>, Self::Error> {
-        let snapshot = self
-            .snapshots
-            .lock()
-            .expect("snapshots lock poisoned")
-            .get(id)
-            .cloned();
-
-        Ok(snapshot)
+        self.inner.load(id).await.map_err(|error| match error {})
     }
 }
 
 #[derive(Debug, Error)]
-#[error("test store failure")]
-struct TestStoreError;
+#[error("injected store failure")]
+struct FaultyStoreError;
