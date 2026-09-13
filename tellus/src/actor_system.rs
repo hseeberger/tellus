@@ -19,6 +19,9 @@ pub struct ActorSystem<M> {
     root: ActorRef<M>,
 
     #[debug(skip)]
+    stopping_tx: Arc<watch::Sender<()>>,
+
+    #[debug(skip)]
     terminated_rx: oneshot::Receiver<()>,
 }
 
@@ -48,14 +51,23 @@ where
         A: Actor<Message = M> + Send + 'static,
         A::State: Send + 'static,
     {
-        let (root, terminated_rx) = spawn_root(actor, config);
+        let (root, stopping_tx, terminated_rx) = spawn_root(actor, config);
 
-        Self::from_parts(root, terminated_rx)
+        Self::from_parts(root, stopping_tx, terminated_rx)
     }
 
     /// The reference for the root actor.
     pub fn root(&self) -> &ActorRef<M> {
         &self.root
+    }
+
+    /// Stop the root actor, and with it the whole tree, children first.
+    ///
+    /// The root stops between messages, never inside one, exactly as it would if a parent
+    /// stopped it: the message it is handling is finished first, and for an event sourced actor
+    /// so is its settlement. Await [ActorSystem::terminated] for the tree to be gone.
+    pub fn stop(&self) {
+        self.stopping_tx.send_replace(());
     }
 
     /// Wait until the root actor and all its descendants have terminated.
@@ -64,9 +76,14 @@ where
         Ok(())
     }
 
-    pub(crate) fn from_parts(root: ActorRef<M>, terminated_rx: oneshot::Receiver<()>) -> Self {
+    pub(crate) fn from_parts(
+        root: ActorRef<M>,
+        stopping_tx: Arc<watch::Sender<()>>,
+        terminated_rx: oneshot::Receiver<()>,
+    ) -> Self {
         Self {
             root,
+            stopping_tx,
             terminated_rx,
         }
     }
@@ -82,7 +99,7 @@ pub enum Error {
 
 pub(crate) fn watch_root<M>(
     root: &ActorRef<M>,
-    stopping_tx: watch::Sender<()>,
+    stopping_tx: Arc<watch::Sender<()>>,
 ) -> oneshot::Receiver<()> {
     let (terminated_tx, terminated_rx) = oneshot::channel();
 
@@ -102,10 +119,11 @@ pub(crate) fn watch_root<M>(
 }
 
 /// `_stopping_tx` keeps the root actor running: living in the root's own watcher registry, it is
-/// dropped only once termination has signaled the watchers.
+/// dropped only once termination has signaled the watchers. [ActorSystem] holds the other
+/// reference, hence dropping a system stops nothing while [ActorSystem::stop] can still send.
 struct RootTerminatedSink {
     terminated_tx: Mutex<Option<oneshot::Sender<()>>>,
-    _stopping_tx: watch::Sender<()>,
+    _stopping_tx: Arc<watch::Sender<()>>,
 }
 
 impl TerminatedSink for RootTerminatedSink {
@@ -117,16 +135,20 @@ impl TerminatedSink for RootTerminatedSink {
     }
 }
 
-fn spawn_root<M, A>(root_actor: A, config: ActorConfig) -> (ActorRef<M>, oneshot::Receiver<()>)
+fn spawn_root<M, A>(
+    root_actor: A,
+    config: ActorConfig,
+) -> (ActorRef<M>, Arc<watch::Sender<()>>, oneshot::Receiver<()>)
 where
     M: Send + 'static,
     A: Actor<Message = M> + Send + 'static,
     A::State: Send + 'static,
 {
     let (stopping_tx, stopping_rx) = watch::channel(());
+    let stopping_tx = Arc::new(stopping_tx);
 
     let root = spawn(stopping_rx, root_actor, config);
-    let terminated_rx = watch_root(&root, stopping_tx);
+    let terminated_rx = watch_root(&root, stopping_tx.clone());
 
-    (root, terminated_rx)
+    (root, stopping_tx, terminated_rx)
 }
