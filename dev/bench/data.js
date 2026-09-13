@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789315074167,
+  "lastUpdate": 1789315076201,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -2221,6 +2221,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 209498,
             "range": "± 5478",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "48e01ffd17482451cf6b59345b380eb0c6084932",
+          "message": "Merge pull request #73 from hseeberger/feat/host\n\nfeat: add hosts, spawning/passivating managed entities",
+          "timestamp": "2026-09-13T18:54:26+03:00",
+          "tree_id": "f16b3b187a342ef5f7a4c11d6e20d9f65225237b",
+          "url": "https://github.com/hseeberger/tellus/commit/48e01ffd17482451cf6b59345b380eb0c6084932"
+        },
+        "date": 1789315075592,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3103087,
+            "range": "± 13839",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3010981,
+            "range": "± 17024",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1642241,
+            "range": "± 11641",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 211293,
+            "range": "± 14249",
             "unit": "ns/iter"
           }
         ]
