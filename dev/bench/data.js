@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789311721816,
+  "lastUpdate": 1789311723474,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -2113,6 +2113,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 213984,
             "range": "± 6314",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "48ce2a29421baad394de223b318f6d27e3b9ff14",
+          "message": "Merge pull request #74 from hseeberger/feat/in-memory-store\n\nfeat: add in-memory store behind persistence-in-memory feature",
+          "timestamp": "2026-09-13T17:58:37+03:00",
+          "tree_id": "c35b0d128021ae17191aeb230676e9864508537f",
+          "url": "https://github.com/hseeberger/tellus/commit/48ce2a29421baad394de223b318f6d27e3b9ff14"
+        },
+        "date": 1789311723126,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3019769,
+            "range": "± 23240",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3030716,
+            "range": "± 36471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1758035,
+            "range": "± 5329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 209498,
+            "range": "± 5478",
             "unit": "ns/iter"
           }
         ]
