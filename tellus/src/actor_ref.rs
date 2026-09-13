@@ -1,6 +1,8 @@
 use crate::{
     ActorId, AskError, MailboxCapacity, ReplyTo,
-    mailbox::{Mailbox, MailboxHandle, TerminatedSink, Watcher, WatcherRegistry, make_mailbox},
+    mailbox::{
+        Mailbox, MailboxHandle, SendError, TerminatedSink, Watcher, WatcherRegistry, make_mailbox,
+    },
 };
 use derive_more::Debug;
 use std::{
@@ -40,6 +42,19 @@ impl<M> ActorRef<M> {
         if let Err(error) = self.mailbox_handle.try_send_message(message) {
             self.dead_letter(&error);
         }
+    }
+
+    /// Like [ActorRef::tell], but reporting whether the message was enqueued.
+    pub(crate) fn try_tell(&self, message: M) -> Result<(), SendError> {
+        self.mailbox_handle.try_send_message(message)
+    }
+
+    /// Enqueue past a full mailbox, for messages the framework has already accepted on the
+    /// sender's behalf, e.g. what a [Host] buffered while an entity stopped.
+    ///
+    /// [Host]: crate::Host
+    pub(crate) fn try_tell_forced(&self, message: M) -> Result<(), SendError> {
+        self.mailbox_handle.try_send_forced_message(message)
     }
 
     /// Send a request to the actor represented by this reference and await the reply for at most
