@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789042314818,
+  "lastUpdate": 1789286845143,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1079,6 +1079,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 2770684,
             "range": "± 9007",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f0a42030e28cbc1a66090cefda4d1c2b836939c2",
+          "message": "Merge pull request #72 from hseeberger/feat/actor-system-stop\n\nfeat: stop an actor system from the outside",
+          "timestamp": "2026-09-13T11:03:13+03:00",
+          "tree_id": "0489674a649d1aac43dfc1308fc89f3b6e35bf9e",
+          "url": "https://github.com/hseeberger/tellus/commit/f0a42030e28cbc1a66090cefda4d1c2b836939c2"
+        },
+        "date": 1789286844349,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 17816938,
+            "range": "± 144376",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 11734355,
+            "range": "± 103491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 703182,
+            "range": "± 21343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 800288,
+            "range": "± 3961",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 4942234,
+            "range": "± 140854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 3511143,
+            "range": "± 11131",
             "unit": "ns/iter"
           }
         ]
