@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789286847486,
+  "lastUpdate": 1789311721816,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1139,6 +1139,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3511143,
             "range": "± 11131",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "48ce2a29421baad394de223b318f6d27e3b9ff14",
+          "message": "Merge pull request #74 from hseeberger/feat/in-memory-store\n\nfeat: add in-memory store behind persistence-in-memory feature",
+          "timestamp": "2026-09-13T17:58:37+03:00",
+          "tree_id": "c35b0d128021ae17191aeb230676e9864508537f",
+          "url": "https://github.com/hseeberger/tellus/commit/48ce2a29421baad394de223b318f6d27e3b9ff14"
+        },
+        "date": 1789311721330,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 11298966,
+            "range": "± 153192",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 16053833,
+            "range": "± 1058930",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 699232,
+            "range": "± 17214",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 799919,
+            "range": "± 6446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 4994275,
+            "range": "± 62038",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 3565174,
+            "range": "± 97620",
             "unit": "ns/iter"
           }
         ]
