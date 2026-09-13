@@ -27,6 +27,7 @@ use std::{
     num::NonZeroUsize,
     panic::{AssertUnwindSafe, catch_unwind},
     pin::pin,
+    sync::Arc,
     task::Poll,
 };
 use thiserror::Error;
@@ -83,11 +84,12 @@ where
         C: Codec + Send + Sync + 'static,
     {
         let (stopping_tx, stopping_rx) = watch::channel(());
+        let stopping_tx = Arc::new(stopping_tx);
 
         let root = spawn_event_sourced(stopping_rx, actor, persistence, config);
-        let terminated_rx = watch_root(&root, stopping_tx);
+        let terminated_rx = watch_root(&root, stopping_tx.clone());
 
-        Self::from_parts(root, terminated_rx)
+        Self::from_parts(root, stopping_tx, terminated_rx)
     }
 }
 

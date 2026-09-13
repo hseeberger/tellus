@@ -520,6 +520,40 @@ async fn a_recovered_failure_restarts_into_a_working_actor() {
     assert_terminates(system, "system did not terminate").await;
 }
 
+/// An outside stop takes effect between commands, like a parent's, hence an append already under
+/// way settles before the tree terminates: a shutdown can lose the acknowledgement of an event,
+/// never the event.
+#[tokio::test]
+async fn stopping_a_system_lets_an_append_settle() {
+    let store = TestStore::default().with_append_delay(Duration::from_millis(50));
+    let (probe_tx, mut probe_rx) = mpsc::unbounded_channel();
+
+    let system = ActorSystem::event_sourced(
+        Counter::new("13", probe_tx),
+        Persistence::new(store.clone()),
+    );
+    assert_eq!(recv(&mut probe_rx, "no init probe").await, Probe::Init);
+    assert_eq!(
+        recv(&mut probe_rx, "no recovered probe").await,
+        Probe::Recovered
+    );
+
+    system.root().tell(Command::Increment(1));
+    assert_eq!(
+        recv(&mut probe_rx, "no handled probe").await,
+        Probe::Handled
+    );
+
+    // The append is under way, so this stop lands in the middle of a settlement.
+    system.stop();
+
+    assert_eq!(
+        recv(&mut probe_rx, "no settled probe").await,
+        Probe::Settled(1)
+    );
+    assert_terminates(system, "system did not terminate").await;
+}
+
 /// Writes are strict: a command is fully settled, its continuations included, before the next one
 /// is handled, even while the append itself is slow.
 #[tokio::test]

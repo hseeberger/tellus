@@ -7,7 +7,8 @@
 //! Actors form a tree: the root actor is spawned by creating an [ActorSystem] and any actor can
 //! spawn child actors via [ActorContext::spawn]. When an actor stops, its child actors are stopped
 //! first; only once all descendants have terminated does it terminate itself. Hence
-//! [ActorSystem::terminated] resolves once the whole actor tree has terminated.
+//! [ActorSystem::terminated] resolves once the whole actor tree has terminated, and
+//! [ActorSystem::stop] ends the tree from the outside, between two messages of the root actor.
 //!
 //! When [Actor::init] or [Actor::receive] fails with an error or a panic, the actor's
 //! [SupervisionStrategy] decides what happens: [SupervisionStrategy::Stop] terminates the actor,

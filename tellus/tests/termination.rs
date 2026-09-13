@@ -39,6 +39,52 @@ async fn descendants_terminate_bottom_up() {
     assert_terminates(system).await;
 }
 
+/// An actor system can be stopped from the outside, which stops the root actor and with it the
+/// whole tree, bottom-up like any parent stopping its children.
+#[tokio::test(flavor = "multi_thread")]
+async fn stopping_a_system_terminates_the_tree_bottom_up() {
+    let (terminated_tx, mut terminated_rx) = mpsc::channel(TERMINATION_ORDER.len());
+    let system = ActorSystem::new(Enduring(Terminated("root", terminated_tx)));
+
+    system.stop();
+
+    let mut terminated = Vec::new();
+    for _ in 0..TERMINATION_ORDER.len() {
+        let actor = recv(&mut terminated_rx, "not all actors terminated").await;
+        terminated.push(actor);
+    }
+    assert_eq!(terminated, TERMINATION_ORDER);
+
+    assert_terminates(system).await;
+}
+
+/// An outside stop takes effect between messages, never inside one: a message being handled when
+/// it arrives is finished first, and the tree terminates afterwards.
+#[tokio::test(flavor = "multi_thread")]
+async fn stopping_a_system_finishes_the_message_being_handled() {
+    let (probe_tx, mut probe_rx) = mpsc::channel(2);
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let system = ActorSystem::new(Blocking {
+        probe: probe_tx,
+        release: release_rx,
+    });
+
+    system.root().tell(());
+    assert_eq!(
+        recv(&mut probe_rx, "the root never started").await,
+        "started"
+    );
+
+    system.stop();
+    release_tx.send(()).expect("the root awaits the release");
+
+    assert_eq!(
+        recv(&mut probe_rx, "the root never finished").await,
+        "finished"
+    );
+    assert_terminates(system).await;
+}
+
 /// Dropping an actor system does not stop its actors: the root actor keeps running and processing
 /// messages, it only forfeits `ActorSystem::terminated`.
 #[tokio::test]
@@ -179,6 +225,59 @@ impl Actor for Root {
         _: Self::State,
     ) -> Result<Control<Self::State>, Self::Error> {
         Ok(Control::Stop)
+    }
+}
+
+/// A root which never stops on its own, so only an outside stop ends it.
+struct Enduring(Terminated);
+
+impl Actor for Enduring {
+    type Message = ();
+    type State = ();
+    type Error = Infallible;
+
+    fn init(&self, context: &ActorContext<Self::Message>) -> Result<Self::State, Self::Error> {
+        context.spawn(Child(self.0.child("child")));
+        Ok(())
+    }
+
+    fn receive(
+        &self,
+        _: &ActorContext<Self::Message>,
+        _: Incoming<Self::Message>,
+        state: Self::State,
+    ) -> Result<Control<Self::State>, Self::Error> {
+        Ok(Control::Continue(state))
+    }
+}
+
+/// Blocks inside `receive` until released, so a test can stop the system while a message is being
+/// handled; `receive` is synchronous, hence this blocks the thread.
+struct Blocking {
+    probe: mpsc::Sender<&'static str>,
+    release: std::sync::mpsc::Receiver<()>,
+}
+
+impl Actor for Blocking {
+    type Message = ();
+    type State = ();
+    type Error = Infallible;
+
+    fn init(&self, _: &ActorContext<Self::Message>) -> Result<Self::State, Self::Error> {
+        Ok(())
+    }
+
+    fn receive(
+        &self,
+        _: &ActorContext<Self::Message>,
+        _: Incoming<Self::Message>,
+        state: Self::State,
+    ) -> Result<Control<Self::State>, Self::Error> {
+        let _ = self.probe.try_send("started");
+        let _ = self.release.recv();
+        let _ = self.probe.try_send("finished");
+
+        Ok(Control::Continue(state))
     }
 }
 

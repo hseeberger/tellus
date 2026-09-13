@@ -244,6 +244,14 @@ part of it, so e.g. a queued request's reply channel resolves its ask as `NoRepl
 pending forever. A send racing with the drain can still slip past it; such a message is retained
 until its last sender is dropped, which is why the `NoReply` detection is best-effort.
 
+The root actor has no parent, so `ActorSystem::stop` is that channel from the outside: it sends on
+the very sender which keeps the root alive, shared between the system and the root's watcher
+registry. Dropping a system therefore still stops nothing, since the registry holds the other
+reference. The root stops where it would stop for a parent, between messages and never inside
+one: the message it is handling is finished first and, for an event sourced actor, so is its
+settlement, so a shutdown can lose the acknowledgement of an event but never the event. Await
+`ActorSystem::terminated` for the tree to be gone.
+
 ## Supervision and restarts
 
 [`SupervisionStrategy`](../tellus/src/actor_config.rs) decides what happens when `init` or
