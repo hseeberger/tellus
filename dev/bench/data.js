@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789326286306,
+  "lastUpdate": 1789497656192,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1379,6 +1379,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 8695396,
             "range": "± 400884",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d1e9362f7359ad8d474fd888e6b5df3ebb3c12db",
+          "message": "Merge pull request #80 from hseeberger/dependabot/cargo/cargo-major-dc3657b4df\n\nbuild(deps): bump hotpath from 0.24.0 to 0.25.1 in the cargo-major group",
+          "timestamp": "2026-09-15T21:37:26+03:00",
+          "tree_id": "449df767d4c6166fe24893b783ad3fd3ab0b5d32",
+          "url": "https://github.com/hseeberger/tellus/commit/d1e9362f7359ad8d474fd888e6b5df3ebb3c12db"
+        },
+        "date": 1789497655289,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 31776200,
+            "range": "± 3493830",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 35569447,
+            "range": "± 687183",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 710059,
+            "range": "± 21267",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 835066,
+            "range": "± 64116",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 8235262,
+            "range": "± 274996",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 6255824,
+            "range": "± 334340",
             "unit": "ns/iter"
           }
         ]
