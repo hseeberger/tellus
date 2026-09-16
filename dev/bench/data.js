@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789497658791,
+  "lastUpdate": 1789540976784,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1439,6 +1439,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 6255824,
             "range": "± 334340",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "907e5dd18f73d8981cbfa249563e842a80d321ec",
+          "message": "Merge pull request #84 from hseeberger/fix/hotpath-utils-version\n\nci: install hotpath-utils matching the hotpath version",
+          "timestamp": "2026-09-16T09:39:34+03:00",
+          "tree_id": "2542b23d7ffac9d852bf76ed17599bb220c982dd",
+          "url": "https://github.com/hseeberger/tellus/commit/907e5dd18f73d8981cbfa249563e842a80d321ec"
+        },
+        "date": 1789540976308,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 11856554,
+            "range": "± 62118",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 13464431,
+            "range": "± 106257",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 722342,
+            "range": "± 17907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 824369,
+            "range": "± 17001",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 5184277,
+            "range": "± 89741",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 3513012,
+            "range": "± 16047",
             "unit": "ns/iter"
           }
         ]
