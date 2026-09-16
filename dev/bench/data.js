@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789541430000,
+  "lastUpdate": 1789541432134,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -2761,6 +2761,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 211311,
             "range": "± 4965",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bf073f6f16b533145ebc9e0a22f7256356857268",
+          "message": "Merge pull request #83 from hseeberger/fix/79-rustsec-2026-0285\n\nfix(deps): bump rustls to 0.23.45 for RUSTSEC-2026-0285",
+          "timestamp": "2026-09-16T09:46:58+03:00",
+          "tree_id": "1da2d3fe3bb0592c7c23fd2a904116819332babc",
+          "url": "https://github.com/hseeberger/tellus/commit/bf073f6f16b533145ebc9e0a22f7256356857268"
+        },
+        "date": 1789541431475,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3068583,
+            "range": "± 31333",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3062212,
+            "range": "± 21867",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1631616,
+            "range": "± 18807",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 205746,
+            "range": "± 3672",
             "unit": "ns/iter"
           }
         ]
