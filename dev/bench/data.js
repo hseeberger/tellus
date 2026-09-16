@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789540976784,
+  "lastUpdate": 1789540978295,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -2653,6 +2653,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 125035,
             "range": "± 8684",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "907e5dd18f73d8981cbfa249563e842a80d321ec",
+          "message": "Merge pull request #84 from hseeberger/fix/hotpath-utils-version\n\nci: install hotpath-utils matching the hotpath version",
+          "timestamp": "2026-09-16T09:39:34+03:00",
+          "tree_id": "2542b23d7ffac9d852bf76ed17599bb220c982dd",
+          "url": "https://github.com/hseeberger/tellus/commit/907e5dd18f73d8981cbfa249563e842a80d321ec"
+        },
+        "date": 1789540977990,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3081784,
+            "range": "± 4000",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3105044,
+            "range": "± 19480",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1752036,
+            "range": "± 8278",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 211311,
+            "range": "± 4965",
             "unit": "ns/iter"
           }
         ]
