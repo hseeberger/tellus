@@ -54,7 +54,7 @@ jobs:
 
       - name: Install hotpath-utils
         run: |
-          cargo install hotpath --version '^0.23' --features utils --locked
+          cargo install hotpath --version '^0.25' --features utils --locked
 
       - name: Profile merge base
         id: base
