@@ -2951,7 +2951,7 @@ dependencies = [
 
 [[package]]
 name = "tellus"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "ciborium",
@@ -2986,7 +2986,7 @@ dependencies = [
 
 [[package]]
 name = "tellus-persistence-postgres"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "composed",
