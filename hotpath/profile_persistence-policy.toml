@@ -1,0 +1,28 @@
+# Docs: https://hotpath.rs/cloud
+
+pr_check = "fail"
+
+[functions]
+min_percent_total = 2
+
+[functions.alloc]
+judged             = true
+min_percent_change = 2
+metrics            = [ "avg", "total" ]
+min_calls          = 1
+
+[functions.timing]
+judged             = false
+min_percent_change = 50
+metrics            = [ "avg", "total" ]
+min_calls          = 1
+
+[[functions.budgets]]
+match   = "tellus::persistence::spawn::apply_events"
+alloc   = { total = "0 B" }
+message = "applying and replaying must not allocate per event beyond the event's own content"
+
+[[functions.budgets]]
+match   = "tellus::persistence::spawn::replay_page"
+alloc   = { total = "0 B" }
+message = "applying and replaying must not allocate per event beyond the event's own content"

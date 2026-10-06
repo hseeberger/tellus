@@ -11,7 +11,7 @@ bench_regression_threshold := "0.15"
 # resolves a group, so that also drops `persistence-tests,persistence-in-memory`, the one
 # combination which compiles tests/persistence_tests.rs. Implications need no group anyway, since
 # cargo-hack drops a combination whose features resolve to the same set.
-powerset := "--feature-powerset --exclude-features hotpath,hotpath-alloc"
+powerset := "--feature-powerset --exclude-features hotpath,hotpath-alloc,hotpath-cloud"
 
 check:
     cargo hack check -p tellus                      --all-targets {{ powerset }}
@@ -127,14 +127,14 @@ bench-report:
 profile:
     cargo run --release -p tellus --example profile --features hotpath
 
-profile-alloc:
-    cargo run --release -p tellus --example profile --features hotpath-alloc
+profile-alloc *features:
+    cargo run --release -p tellus --example profile --features "hotpath-alloc {{ features }}"
 
 profile-persistence:
     cargo run --release -p tellus --example profile_persistence --features "hotpath,persistence,persistence-in-memory"
 
-profile-persistence-alloc:
-    cargo run --release -p tellus --example profile_persistence --features "hotpath-alloc,persistence,persistence-in-memory"
+profile-persistence-alloc *features:
+    cargo run --release -p tellus --example profile_persistence --features "hotpath-alloc,persistence,persistence-in-memory {{ features }}"
 
 # Passes if any of up to `attempts` runs is clean: hotpath bills the rehash of its own location
 # registry (208 B) to whichever measured function registers when the registry grows, in about one

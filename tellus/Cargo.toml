@@ -16,6 +16,7 @@ all-features = true
 [features]
 hotpath               = [ "dep:hotpath", "hotpath/hotpath" ]
 hotpath-alloc         = [ "hotpath", "hotpath/hotpath-alloc" ]
+hotpath-cloud         = [ "hotpath", "hotpath/hotpath-cloud" ]
 persistence           = [ "dep:ciborium", "dep:serde", "dep:serde_json", "dep:trait-variant" ]
 persistence-in-memory = [ "persistence" ]
 persistence-tests     = [ "persistence" ]

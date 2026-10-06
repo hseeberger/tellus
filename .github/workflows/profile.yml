@@ -1,48 +1,48 @@
 name: Profile
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
-  workflow_dispatch:
 
 concurrency:
   group: profile-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  toolchain:
-    name: Setup Rust toolchain
+  upload:
+    name: Profile ${{ matrix.benchmark }} (upload)
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    outputs:
-      stable: ${{ steps.set_toolchain.outputs.stable }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - benchmark: profile
+            recipe: profile-alloc
+          - benchmark: profile_persistence
+            recipe: profile-persistence-alloc
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Output toolchain
-        id: set_toolchain
+        id: toolchain
         run: |
           stable=$(grep channel rust-toolchain.toml | sed -r 's/channel = "(.*)"/\1/')
           echo "stable=$stable" | tee -a "$GITHUB_OUTPUT"
 
-  profile-pr:
-    name: Profile against merge base
-    runs-on: ubuntu-latest
-    needs: toolchain
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
         with:
-          toolchain: ${{ needs.toolchain.outputs.stable }}
+          toolchain: ${{ steps.toolchain.outputs.stable }}
 
       - name: Install just
         uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
@@ -52,90 +52,68 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Install hotpath-utils
-        run: |
-          cargo install hotpath --version '^0.25' --features utils --locked
-
-      - name: Profile merge base
-        id: base
-        continue-on-error: true
+      - name: Profile and upload report
         env:
-          HOTPATH_OUTPUT_FORMAT: json
-          HOTPATH_OUTPUT_PATH: /tmp/metrics/base.json
-        run: |
-          rustup override set ${{ needs.toolchain.outputs.stable }}
-          mkdir -p /tmp/metrics
-          base=$(git merge-base origin/main HEAD)
-          git checkout --detach "$base"
-          git checkout "$GITHUB_SHA" -- justfile
-          just profile-alloc
+          HOTPATH_UPLOAD: 1
+          HOTPATH_BENCHMARK: ${{ matrix.benchmark }}
+          HOTPATH_USER_METADATA: runner=${{ runner.os }}-${{ runner.arch }},toolchain=${{ steps.toolchain.outputs.stable }},profile=release
+          HOTPATH_OUTPUT_FORMAT: none
+        run: just ${{ matrix.recipe }} hotpath-cloud
 
-      # The merge base may predate the persistence profiling example; the report then carries a
-      # note instead of the persistence comparison for this PR. Gated on the base step's outcome:
-      # if that step failed before its checkout, the repository still holds the PR head, and
-      # profiling it here would report a head-vs-head persistence comparison as the base.
-      - name: Profile merge base (persistence)
-        id: base-persistence
-        if: steps.base.outcome == 'success'
-        continue-on-error: true
-        env:
-          HOTPATH_OUTPUT_FORMAT: json
-          HOTPATH_OUTPUT_PATH: /tmp/metrics/base-persistence.json
-        run: |
-          just profile-persistence-alloc
-
-      - name: Profile PR head
-        env:
-          HOTPATH_OUTPUT_FORMAT: json
-          HOTPATH_OUTPUT_PATH: /tmp/metrics/head.json
-        run: |
-          git checkout -f --detach "$GITHUB_SHA"
-          just profile-alloc
-
-      - name: Profile PR head (persistence)
-        env:
-          HOTPATH_OUTPUT_FORMAT: json
-          HOTPATH_OUTPUT_PATH: /tmp/metrics/head-persistence.json
-        run: |
-          just profile-persistence-alloc
-
-      - name: Compare against merge base
-        run: |
-          echo "## Messaging" > report.md
-          if [ "${{ steps.base.outcome }}" = "success" ]; then
-            hotpath-utils profile-pr \
-              --head-metrics /tmp/metrics/head.json \
-              --base-metrics /tmp/metrics/base.json \
-              --dry-run >> report.md
-          else
-            echo "_The merge base cannot be profiled, likely it lacks the hotpath feature; no comparison._" >> report.md
-          fi
-          echo "## Persistence" >> report.md
-          if [ "${{ steps.base-persistence.outcome }}" = "success" ]; then
-            hotpath-utils profile-pr \
-              --head-metrics /tmp/metrics/head-persistence.json \
-              --base-metrics /tmp/metrics/base-persistence.json \
-              --dry-run >> report.md
-          else
-            echo "_The merge base cannot be profiled, likely it lacks the persistence profiling example; no comparison._" >> report.md
-          fi
-
-      - name: Report
-        run: |
-          cat report.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Comment on PR
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+  report:
+    name: Profile ${{ matrix.benchmark }}
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - benchmark: profile
+            recipe: profile-alloc
+          - benchmark: profile_persistence
+            recipe: profile-persistence-alloc
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          header: profile
-          path: report.md
+          ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Enforce zero allocations on the messaging path
+      - name: Output toolchain
+        id: toolchain
         run: |
-          just profile-alloc-check /tmp/metrics/head.json
+          stable=$(grep channel rust-toolchain.toml | sed -r 's/channel = "(.*)"/\1/')
+          echo "stable=$stable" | tee -a "$GITHUB_OUTPUT"
 
-      - name: Enforce zero allocations on the apply and replay paths
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: ${{ steps.toolchain.outputs.stable }}
+
+      - name: Install just
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with:
+          tool: just
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Profile and write report
+        env:
+          HOTPATH_BENCHMARK: ${{ matrix.benchmark }}
+          HOTPATH_USER_METADATA: runner=${{ runner.os }}-${{ runner.arch }},toolchain=${{ steps.toolchain.outputs.stable }},profile=release
+          HOTPATH_OUTPUT_FORMAT: json
+          HOTPATH_OUTPUT_PATH: report.json
         run: |
-          just profile-persistence-alloc-check /tmp/metrics/head-persistence.json
+          just ${{ matrix.recipe }} hotpath-cloud
+          test -s report.json
+
+      - name: Store report for the relay
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hotpath-report-${{ matrix.benchmark }}
+          path: report.json
+          retention-days: 1
+          if-no-files-found: error
