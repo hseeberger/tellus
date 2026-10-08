@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791453359786,
+  "lastUpdate": 1791453361536,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -3193,6 +3193,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 144400,
             "range": "± 4124",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1b0d058ddd53a1d1b41287f8c867fe32e74d1352",
+          "message": "Merge pull request #96 from hseeberger/dependabot/cargo/cargo-major-4e228f18ff\n\nbuild(deps): bump hotpath from 0.26.1 to 0.28.0 in the cargo-major group across 1 directory",
+          "timestamp": "2026-10-08T11:52:16+02:00",
+          "tree_id": "ea605ca56da5c5c004141fb6171c5dd9e303b20e",
+          "url": "https://github.com/hseeberger/tellus/commit/1b0d058ddd53a1d1b41287f8c867fe32e74d1352"
+        },
+        "date": 1791453361077,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2166420,
+            "range": "± 51203",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2211202,
+            "range": "± 41944",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1210439,
+            "range": "± 13750",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 138965,
+            "range": "± 4303",
             "unit": "ns/iter"
           }
         ]
