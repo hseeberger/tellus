@@ -8,8 +8,7 @@ use derive_more::Display;
 pub struct SeqNo(u64);
 
 impl SeqNo {
-    /// The position of an empty stream, and the sequence number of the first event appended to
-    /// one.
+    /// The position of an empty stream and the sequence number of the first event.
     pub const ZERO: Self = Self::new(0);
 
     /// Create a sequence number, e.g. from a store's column value.

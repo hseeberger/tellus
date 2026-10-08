@@ -1,0 +1,5 @@
+seeds:
+  k8s:
+    label_selector: app=tellus
+    port:
+      number: 7878

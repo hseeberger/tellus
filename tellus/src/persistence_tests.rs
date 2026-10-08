@@ -89,11 +89,11 @@ where
         .await
         .expect("the first append must succeed");
 
-    for stale in [0, 1, 7].map(SeqNo::new) {
-        let conflict = store.append(&id, stale, sample_events(3)).await;
+    for mismatched in [0, 1, 7].map(SeqNo::new) {
+        let conflict = store.append(&id, mismatched, sample_events(3)).await;
         assert!(
             matches!(conflict, Err(AppendError::Conflict)),
-            "an append expecting next sequence number {stale} on a stream with 2 events must \
+            "an append expecting next sequence number {mismatched} on a stream with 2 events must \
              fail with Conflict, got {conflict:?}"
         );
     }
@@ -117,7 +117,7 @@ where
 
 /// An empty append inserts nothing but is still conditional: it succeeds against the stream's
 /// actual next sequence number, empty streams included, fails with [AppendError::Conflict]
-/// against a stale one, and leaves the stream untouched either way.
+/// against a mismatched one, below or above, and leaves the stream untouched either way.
 pub async fn an_empty_append_is_fenced<E>(store: E)
 where
     E: EventStore,
@@ -140,12 +140,12 @@ where
         .await
         .expect("an empty append at the stream head must succeed");
 
-    for stale in [0, 1, 7].map(SeqNo::new) {
-        let conflict = store.append(&id, stale, Vec::new()).await;
+    for mismatched in [0, 1, 7].map(SeqNo::new) {
+        let conflict = store.append(&id, mismatched, Vec::new()).await;
         assert!(
             matches!(conflict, Err(AppendError::Conflict)),
-            "an empty append expecting next sequence number {stale} on a stream with 2 events \
-             must fail with Conflict, got {conflict:?}"
+            "an empty append expecting next sequence number {mismatched} on a stream with 2 \
+             events must fail with Conflict, got {conflict:?}"
         );
     }
 
@@ -474,7 +474,7 @@ fn unique_persistence_id() -> PersistenceId {
 fn sample_events(count: usize) -> Vec<EncodedEvent> {
     (0..count)
         .map(|n| EncodedEvent {
-            manifest: "contract-event".to_string(),
+            manifest: "contract-event".into(),
             schema_version: SchemaVersion::new(n as u16 + 1),
             payload: vec![0xC0, n as u8, 0xFF],
         })
@@ -484,7 +484,7 @@ fn sample_events(count: usize) -> Vec<EncodedEvent> {
 fn writer_events(writer: u8) -> Vec<EncodedEvent> {
     (0..3)
         .map(|n| EncodedEvent {
-            manifest: "contract-event".to_string(),
+            manifest: "contract-event".into(),
             schema_version: SchemaVersion::new(1),
             payload: vec![0xC2, writer, n],
         })
@@ -493,7 +493,7 @@ fn writer_events(writer: u8) -> Vec<EncodedEvent> {
 
 fn sample_snapshot(tag: u8) -> EncodedSnapshot {
     EncodedSnapshot {
-        manifest: "contract-snapshot".to_string(),
+        manifest: "contract-snapshot".into(),
         schema_version: SchemaVersion::new(1),
         payload: vec![0xC1, tag],
     }

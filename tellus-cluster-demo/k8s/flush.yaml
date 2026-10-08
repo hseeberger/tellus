@@ -1,0 +1,34 @@
+# A NetworkPolicy is evaluated for new connections only: once conntrack holds a flow, kindnetd's
+# dataplane accepts it on the established fast path without consulting the policy again. The
+# cluster's QUIC connections are long lived and its heartbeats keep them fresh forever, so
+# labelling pods cuts nothing until those flows are forgotten. This helper is what forgets them.
+#
+# It runs the node's own conntrack through nsenter rather than shipping one, which is why it is
+# privileged and in the host's PID and network namespaces: that is where the policy hooks and the
+# conntrack table it consults live. Node level access for a local demo cluster, and the reason
+# this is a separate pod rather than a capability of the chaos agent.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tellus-conntrack
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  selector:
+    matchLabels:
+      app: tellus-conntrack
+  template:
+    metadata:
+      labels:
+        app: tellus-conntrack
+        app.kubernetes.io/part-of: tellus-cluster-demo
+    spec:
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: conntrack
+          image: alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
+          imagePullPolicy: IfNotPresent
+          command: [ sleep, infinity ]
+          securityContext:
+            privileged: true

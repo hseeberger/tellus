@@ -1,8 +1,9 @@
 use crate::{
     Actor, ActorConfig, ActorId, ActorRef,
     actor_context::spawn,
-    mailbox::{ActorTerminated, TerminatedSink, Watcher},
+    actor_ref::WatchTarget,
     sync::lock,
+    watch::{ActorTerminated, TerminatedHandler, Watcher},
 };
 use derive_more::Debug;
 use std::sync::{Arc, Mutex};
@@ -12,14 +13,15 @@ use tokio::sync::{oneshot, watch};
 /// An actor system, hosting the tree of actors below its root actor.
 ///
 /// Dropping an actor system does not stop its actors: the root actor stops on its own terms and
-/// the tree keeps running detached; dropping merely forfeits [ActorSystem::terminated].
+/// the tree keeps running detached; all that is lost is the ability to await
+/// [ActorSystem::terminated].
 #[must_use = "dropping an actor system does not stop its actors"]
 #[derive(Debug)]
 pub struct ActorSystem<M> {
     root: ActorRef<M>,
 
     #[debug(skip)]
-    stopping_tx: Arc<watch::Sender<()>>,
+    stop_root_tx: Arc<watch::Sender<()>>,
 
     #[debug(skip)]
     terminated_rx: oneshot::Receiver<()>,
@@ -51,9 +53,9 @@ where
         A: Actor<Message = M> + Send + 'static,
         A::State: Send + 'static,
     {
-        let (root, stopping_tx, terminated_rx) = spawn_root(actor, config);
+        let (root, stop_root_tx, terminated_rx) = spawn_root(actor, config);
 
-        Self::from_parts(root, stopping_tx, terminated_rx)
+        Self::from_parts(root, stop_root_tx, terminated_rx)
     }
 
     /// The reference for the root actor.
@@ -67,23 +69,26 @@ where
     /// stopped it: the message it is handling is finished first, and for an event sourced actor
     /// so is its settlement. Await [ActorSystem::terminated] for the tree to be gone.
     pub fn stop(&self) {
-        self.stopping_tx.send_replace(());
+        self.stop_root_tx.send_replace(());
     }
 
     /// Wait until the root actor and all its descendants have terminated.
-    pub async fn terminated(self) -> Result<(), Error> {
+    ///
+    /// # Errors
+    /// Fails if the root's termination cannot be observed, which no ordinary termination causes.
+    pub async fn terminated(self) -> Result<(), TerminatedError> {
         self.terminated_rx.await?;
         Ok(())
     }
 
     pub(crate) fn from_parts(
         root: ActorRef<M>,
-        stopping_tx: Arc<watch::Sender<()>>,
+        stop_root_tx: Arc<watch::Sender<()>>,
         terminated_rx: oneshot::Receiver<()>,
     ) -> Self {
         Self {
             root,
-            stopping_tx,
+            stop_root_tx,
             terminated_rx,
         }
     }
@@ -91,7 +96,7 @@ where
 
 /// Errors possibly returned by [ActorSystem::terminated].
 #[derive(Debug, Error)]
-pub enum Error {
+pub enum TerminatedError {
     /// Unexpected failure during watching the root actor.
     #[error("root watch failed unexpectedly")]
     WatchRoot(#[from] oneshot::error::RecvError),
@@ -99,35 +104,39 @@ pub enum Error {
 
 pub(crate) fn watch_root<M>(
     root: &ActorRef<M>,
-    stopping_tx: Arc<watch::Sender<()>>,
+    stop_root_tx: Arc<watch::Sender<()>>,
 ) -> oneshot::Receiver<()> {
     let (terminated_tx, terminated_rx) = oneshot::channel();
 
-    let sink = Arc::new(RootTerminatedSink {
+    let handler = Arc::new(RootTerminatedHandler {
         terminated_tx: Mutex::new(Some(terminated_tx)),
-        _stopping_tx: stopping_tx,
+        _stop_root_tx: stop_root_tx,
     });
-    let registration = root
-        .watcher_registry()
-        .add(Watcher::new(ActorId::new(), sink.clone()));
+    let registration = match root.watch_target() {
+        WatchTarget::Local(registry) => registry.add(Watcher::new(ActorId::new(), handler.clone())),
+
+        #[cfg(feature = "cluster")]
+        WatchTarget::Remote(_) => unreachable!("the root actor is local"),
+    };
     if registration.is_err() {
-        sink.send_terminated(root.actor_id())
-            .expect("a sink whose registration failed was never signaled");
+        handler
+            .handle_terminated(root.actor_id())
+            .expect("a handler whose registration failed was never signaled");
     }
 
     terminated_rx
 }
 
-/// `_stopping_tx` keeps the root actor running: living in the root's own watcher registry, it is
+/// `_stop_root_tx` keeps the root actor running: living in the root's own watcher registry, it is
 /// dropped only once termination has signaled the watchers. [ActorSystem] holds the other
 /// reference, hence dropping a system stops nothing while [ActorSystem::stop] can still send.
-struct RootTerminatedSink {
+struct RootTerminatedHandler {
     terminated_tx: Mutex<Option<oneshot::Sender<()>>>,
-    _stopping_tx: Arc<watch::Sender<()>>,
+    _stop_root_tx: Arc<watch::Sender<()>>,
 }
 
-impl TerminatedSink for RootTerminatedSink {
-    fn send_terminated(&self, _actor_id: ActorId) -> Result<(), ActorTerminated> {
+impl TerminatedHandler for RootTerminatedHandler {
+    fn handle_terminated(&self, _actor_id: ActorId) -> Result<(), ActorTerminated> {
         let terminated_tx = lock(&self.terminated_tx).take().ok_or(ActorTerminated)?;
         let _ = terminated_tx.send(());
 
@@ -144,11 +153,11 @@ where
     A: Actor<Message = M> + Send + 'static,
     A::State: Send + 'static,
 {
-    let (stopping_tx, stopping_rx) = watch::channel(());
-    let stopping_tx = Arc::new(stopping_tx);
+    let (stop_root_tx, stopped_by_parent_rx) = watch::channel(());
+    let stop_root_tx = Arc::new(stop_root_tx);
 
-    let root = spawn(stopping_rx, root_actor, config);
-    let terminated_rx = watch_root(&root, stopping_tx.clone());
+    let root = spawn(stopped_by_parent_rx, root_actor, config);
+    let terminated_rx = watch_root(&root, stop_root_tx.clone());
 
-    (root, stopping_tx, terminated_rx)
+    (root, stop_root_tx, terminated_rx)
 }

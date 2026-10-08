@@ -1,0 +1,72 @@
+# The nodes list pods to find each other; the chaos agent deletes and labels them. Nothing here
+# grants more than that.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tellus
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tellus-seeds
+rules:
+  - apiGroups: [ "" ]
+    resources: [ pods ]
+    verbs: [ list ]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tellus-seeds
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tellus-seeds
+subjects:
+  - kind: ServiceAccount
+    name: tellus
+    namespace: default
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tellus-chaos
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tellus-chaos
+rules:
+  # patch is what `kubectl label` uses, watch what `kubectl wait` needs, and delete is both the
+  # crash and the departure.
+  - apiGroups: [ "" ]
+    resources: [ pods ]
+    verbs: [ get, list, watch, patch, delete ]
+
+  # The partition is not effective until the established flows are forgotten, which the helper
+  # in the node's network namespace does.
+  - apiGroups: [ "" ]
+    resources: [ pods/exec ]
+    verbs: [ create ]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tellus-chaos
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tellus-chaos
+subjects:
+  - kind: ServiceAccount
+    name: tellus-chaos
+    namespace: default
