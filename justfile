@@ -136,21 +136,12 @@ profile-persistence:
 profile-persistence-alloc *features:
     cargo run --release -p tellus --example profile_persistence --features "hotpath-alloc,persistence,persistence-in-memory {{ features }}"
 
-# Passes if any of up to `attempts` runs is clean: hotpath bills the rehash of its own location
-# registry (208 B) to whichever measured function registers when the registry grows, in about one
-# run in five. A real allocation shows in every run.
-profile-alloc-gate out="target/hotpath/profile.json" attempts="5":
+profile-alloc-gate out="target/hotpath/profile.json":
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "$(dirname "{{ out }}")"
-    for attempt in $(seq 1 {{ attempts }}); do
-        HOTPATH_OUTPUT_FORMAT=json HOTPATH_OUTPUT_PATH="{{ out }}" just profile-alloc
-        if just profile-alloc-check "{{ out }}"; then
-            exit 0
-        fi
-        echo "attempt $attempt of {{ attempts }} failed"
-    done
-    exit 1
+    HOTPATH_OUTPUT_FORMAT=json HOTPATH_OUTPUT_PATH="{{ out }}" just profile-alloc
+    just profile-alloc-check "{{ out }}"
 
 # The steady-state messaging path must not allocate per message; "0 B" is exact, not rounded.
 profile-alloc-check file:
