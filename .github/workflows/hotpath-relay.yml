@@ -1,0 +1,29 @@
+name: hotpath relay
+
+on:
+  workflow_run:
+    workflows: ["Profile"]
+    types: [completed]
+
+jobs:
+  relay-profile:
+    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@9b238fa84222efde573f29eb4bae76dcb5f700c0 # v0.28.6
+    permissions:
+      actions: read
+      id-token: write
+      pull-requests: read
+    with:
+      benchmark: profile
+      artifact_name: hotpath-report-profile
+      report_file: report.json
+
+  relay-profile-persistence:
+    uses: pawurb/hotpath-rs/.github/workflows/hotpath-relay.yml@9b238fa84222efde573f29eb4bae76dcb5f700c0 # v0.28.6
+    permissions:
+      actions: read
+      id-token: write
+      pull-requests: read
+    with:
+      benchmark: profile_persistence
+      artifact_name: hotpath-report-profile_persistence
+      report_file: report.json
