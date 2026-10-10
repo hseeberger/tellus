@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/hseeberger/tellus/compare/tellus-v0.3.0...tellus-v0.3.1) - 2026-10-10
+
+### Other
+
+- migrate profiling to hotpath cloud
+- replace TestStore with FaultyStore over InMemoryStore
+
 ## [0.3.0](https://github.com/hseeberger/tellus/compare/tellus-v0.2.1...tellus-v0.3.0) - 2026-09-13
 
 ### Added
