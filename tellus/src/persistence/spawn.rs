@@ -651,7 +651,7 @@ where
 }
 
 #[cfg_attr(feature = "hotpath", hotpath::measure)]
-fn apply_events<A>(actor: &A, state: A::State, events: Vec<A::Event>) -> A::State
+pub(crate) fn apply_events<A>(actor: &A, state: A::State, events: Vec<A::Event>) -> A::State
 where
     A: EventSourced,
 {

@@ -21,6 +21,7 @@ persistence           = [ "dep:ciborium", "dep:serde", "dep:serde_json", "dep:tr
 persistence-in-memory = [ "persistence" ]
 persistence-tests     = [ "persistence" ]
 serde                 = [ "dep:humantime-serde", "dep:serde" ]
+test-util             = [  ]
 
 [dependencies]
 ciborium        = { workspace = true, optional = true }

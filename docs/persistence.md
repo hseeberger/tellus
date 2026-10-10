@@ -156,6 +156,108 @@ nor upcast is rejected on read, and the store is never rewritten. A rejected eve
 a snapshot that can no longer be decoded is simply discarded and recovery falls back to full
 replay, which is why snapshots need no migration story at all.
 
+## Testing
+
+The methods of `EventSourced` are plain synchronous functions, so an entity's logic can be unit
+tested without a system, a mailbox or a store. `init`, `init_from_snapshot`, `apply` and
+`snapshot` take no context at all; replaying events is a fold of `apply` over `init`. `handle` and
+`recovered` need an `ActorContext`, which `TestContext` provides with the `test-util` feature.
+`Effect` is inspectable with `events` and `stop_requested`, and `settle` runs it the way
+settlement does once the events are durable: it applies the events to the state in order and then
+runs the `then` continuations in order on the resulting state. Whatever a continuation sends to
+the entity itself is read back with `take_incoming`.
+
+```rust
+use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
+use tellus::{
+    ActorContext, Effect, EventSourced, Incoming, Nothing, PersistenceId, ReplyTo,
+    SchemaVersion, Versioned,
+    testing::{TestContext, settle},
+};
+
+struct Counter;
+
+enum Command {
+    Increase(ReplyTo<u64>),
+    Total(u64),
+}
+
+#[derive(Serialize, Deserialize)]
+struct Increased;
+
+impl Versioned for Increased {
+    const MANIFEST: &'static str = "increased";
+    const VERSION: SchemaVersion = SchemaVersion::new(1);
+}
+
+impl EventSourced for Counter {
+    type Command = Command;
+    type Event = Increased;
+    type State = u64;
+    type Snapshot = Nothing;
+    type Error = Infallible;
+
+    fn persistence_id(&self) -> PersistenceId {
+        PersistenceId::new("counter", "1").expect("the segments are valid")
+    }
+
+    fn init(&self) -> Result<Self::State, Self::Error> {
+        Ok(0)
+    }
+
+    fn init_from_snapshot(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::Error> {
+        match snapshot {}
+    }
+
+    fn handle(
+        &self,
+        _: &ActorContext<Self::Command>,
+        incoming: Incoming<Self::Command>,
+        _: &Self::State,
+    ) -> Result<Effect<Self>, Self::Error> {
+        match incoming {
+            Incoming::Message(Command::Increase(reply_to)) => {
+                Ok(Effect::persist(Increased).then(move |count| reply_to.reply(*count)))
+            }
+
+            _ => Ok(Effect::none()),
+        }
+    }
+
+    fn apply(&self, count: Self::State, _: Self::Event) -> Self::State {
+        count + 1
+    }
+}
+
+let mut test_context = TestContext::new();
+let reply_to = test_context.context().reply_to(Command::Total);
+
+let effect = Counter
+    .handle(
+        test_context.context(),
+        Incoming::Message(Command::Increase(reply_to)),
+        &0,
+    )
+    .unwrap();
+assert_eq!(effect.events().len(), 1);
+assert!(!effect.stop_requested());
+
+let settlement = settle(&Counter, 0, effect);
+assert_eq!(settlement.state, 1);
+assert!(!settlement.stop);
+assert!(matches!(
+    test_context.take_incoming().as_slice(),
+    [Incoming::Message(Command::Total(1))]
+));
+```
+
+`settle` leaves out everything about the store: encoding, appending, snapshots and sequence
+numbers. Those are covered by the contract suite every store passes, and by the tests of
+`tellus` itself, which run the guarantees above over an in-memory store. A test which spawns the
+entity, sends a command with `tell` and then reads the store has to wait for the settlement, since
+`tell` returns before the command is handled; it mostly tests those guarantees again.
+
 ## Guarantees and limitations
 
 - An appended event is never modified or deleted: the stream is append-only and is the single

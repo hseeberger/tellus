@@ -246,6 +246,15 @@ meant for a backend crate's integration tests. The `persistence-in-memory` featu
 without a database. For the guarantees, from replay equals live execution to fencing and schema
 evolution, see [docs/persistence.md](../docs/persistence.md).
 
+## Testing
+
+The `test-util` feature adds `testing::TestContext`, which provides the `ActorContext` that `init`,
+`receive`, `handle` and `recovered` require, so an actor's logic can be unit tested by calling
+those methods directly, without a running actor system. Everything the actor sends to itself can
+be read back in order. Together with the `persistence` feature, `testing::settle` runs the `Effect`
+returned by `handle` against the entity's state, without a store. See the Testing sections of
+[docs/actors.md](../docs/actors.md) and [docs/persistence.md](../docs/persistence.md).
+
 ## Examples
 
 Ordered from minimal to real-world-ish, each building on the features of the previous ones. All
