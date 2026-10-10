@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791644551303,
+  "lastUpdate": 1791652002496,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1859,6 +1859,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3450285,
             "range": "± 19643",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c1ea36554936b83207a6697b050f692aa4c21ee",
+          "message": "Merge pull request #104 from hseeberger/ci/drop-alloc-gate-retry\n\nci: drop the zero-alloc gate retry now that hotpath is fixed",
+          "timestamp": "2026-10-10T19:03:17+02:00",
+          "tree_id": "0dfd00729ceb4b54c4a4622819a80a0c6e7bc8f1",
+          "url": "https://github.com/hseeberger/tellus/commit/4c1ea36554936b83207a6697b050f692aa4c21ee"
+        },
+        "date": 1791652001911,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 9751693,
+            "range": "± 402658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 11571481,
+            "range": "± 849207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 696906,
+            "range": "± 24416",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 573877,
+            "range": "± 9654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 4156677,
+            "range": "± 96682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 2990885,
+            "range": "± 104831",
             "unit": "ns/iter"
           }
         ]
