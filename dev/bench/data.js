@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791652002496,
+  "lastUpdate": 1791652003982,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -3409,6 +3409,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 214208,
             "range": "± 5441",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c1ea36554936b83207a6697b050f692aa4c21ee",
+          "message": "Merge pull request #104 from hseeberger/ci/drop-alloc-gate-retry\n\nci: drop the zero-alloc gate retry now that hotpath is fixed",
+          "timestamp": "2026-10-10T19:03:17+02:00",
+          "tree_id": "0dfd00729ceb4b54c4a4622819a80a0c6e7bc8f1",
+          "url": "https://github.com/hseeberger/tellus/commit/4c1ea36554936b83207a6697b050f692aa4c21ee"
+        },
+        "date": 1791652003596,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2171910,
+            "range": "± 41525",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2120621,
+            "range": "± 52104",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1201868,
+            "range": "± 23755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 140294,
+            "range": "± 5983",
             "unit": "ns/iter"
           }
         ]
