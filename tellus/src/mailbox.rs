@@ -4,6 +4,8 @@ use crate::{
     sync::lock,
 };
 use flume::Receiver;
+#[cfg(feature = "test-util")]
+use flume::TryRecvError;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -70,6 +72,20 @@ impl<M> Mailbox<M> {
             self.quota.unreserve();
         }
         Some(incoming)
+    }
+
+    #[cfg(feature = "test-util")]
+    pub(crate) fn try_recv(&mut self) -> Option<Incoming<M>> {
+        match self.incoming_rx.try_recv() {
+            Ok(incoming) => {
+                if matches!(incoming, Incoming::Message(_)) {
+                    self.quota.unreserve();
+                }
+                Some(incoming)
+            }
+
+            Err(TryRecvError::Empty | TryRecvError::Disconnected) => None,
+        }
     }
 
     /// Dropping the returned receiver makes every send fail as terminated, while the

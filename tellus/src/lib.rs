@@ -37,11 +37,17 @@
 //! adds [persistence_tests], the contract test suite any store implementation must pass, and the
 //! `persistence-in-memory` feature adds [InMemoryStore], which keeps events and snapshots in
 //! memory, for testing event-sourced actors without a database.
+//!
+//! The `test-util` feature adds [testing], which unit tests an actor's logic without a running
+//! actor system: [testing::TestContext] provides the [ActorContext] to call [Actor::receive],
+//! `EventSourced::handle` and the like directly, and collects what the actor sends to itself.
 
 #![warn(missing_docs)]
 
 #[cfg(feature = "persistence-tests")]
 pub mod persistence_tests;
+#[cfg(feature = "test-util")]
+pub mod testing;
 
 mod actor;
 mod actor_config;

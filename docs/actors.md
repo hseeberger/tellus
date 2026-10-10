@@ -381,6 +381,75 @@ local) panics as well. Rust aborts the process on a panic during unwinding, belo
 and hence below supervision. This is inherent to Rust, not specific to tellus: keep destructors
 panic-free.
 
+## Testing
+
+An actor's logic can be unit tested without a running system. `init`, `receive` and the other
+methods are plain synchronous functions, and the only argument which cannot be built by hand is the
+`ActorContext`. With the `test-util` feature, [`TestContext`](../tellus/src/testing.rs) provides
+one together with the mailbox behind it. Everything the actor sends to itself, directly or through
+a `ReplyTo`, can be read back in order with `take_incoming`.
+
+```rust
+use std::convert::Infallible;
+use tellus::{Actor, ActorContext, Control, Incoming, testing::TestContext};
+
+struct Countdown;
+
+impl Actor for Countdown {
+    type Message = u32;
+    type State = u32;
+    type Error = Infallible;
+
+    fn init(&self, _: &ActorContext<Self::Message>) -> Result<Self::State, Self::Error> {
+        Ok(0)
+    }
+
+    fn receive(
+        &self,
+        context: &ActorContext<Self::Message>,
+        incoming: Incoming<Self::Message>,
+        sum: Self::State,
+    ) -> Result<Control<Self::State>, Self::Error> {
+        let Incoming::Message(n) = incoming else {
+            return Ok(Control::Stop);
+        };
+
+        if n > 0 {
+            context.self_ref().tell(n - 1);
+        }
+        Ok(Control::Continue(sum + n))
+    }
+}
+
+let mut test_context = TestContext::new();
+
+let control = Countdown
+    .receive(test_context.context(), Incoming::Message(3), 0)
+    .unwrap();
+
+assert_eq!(control, Control::Continue(3));
+assert_eq!(test_context.take_incoming(), [Incoming::Message(2)]);
+```
+
+Calling an actor directly differs from running it in a few ways:
+
+- The run loop drops a terminated signal whose sender is no longer watched; a direct call to
+  `receive` sees every signal it is given.
+- Nothing supervises the call: an error or a panic reaches the test, and nothing restarts the
+  actor.
+- `spawn` starts a real child actor, hence needs a Tokio runtime, for example `#[tokio::test]`.
+  Dropping the `TestContext` asks the children to stop without waiting for them.
+- To test `watch`, simulate the watched actor with a second `TestContext`: watch its `self_ref()`,
+  then call `terminate`. Like an actor's termination, `terminate` stops the children, waits until
+  every descendant has terminated and only then sends the terminated signal to the watchers.
+  A `TestContext` owns neither an actor value nor a state, so a test of destructor order has to
+  drop those itself.
+
+These tests cover the actor's logic. Mailbox delivery, supervision and the ordering guarantees
+described in this document belong to the run loop and have tests of their own. A test which spawns
+a system, sends a message with `tell` and then reads some result mostly tests those again, and it
+has to wait for the actor, since `tell` returns before the message is handled.
+
 ## Guarantees and limitations
 
 - `tell` is fire-and-forget and at-most-once: no acknowledgements, no redelivery, dead letters

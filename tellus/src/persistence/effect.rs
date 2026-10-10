@@ -58,6 +58,18 @@ where
         self
     }
 
+    /// The events this effect persists, in order.
+    #[cfg(feature = "test-util")]
+    pub fn events(&self) -> &[A::Event] {
+        &self.events
+    }
+
+    /// Whether this effect stops the actor once settled.
+    #[cfg(feature = "test-util")]
+    pub fn stop_requested(&self) -> bool {
+        self.stop
+    }
+
     /// Run the given continuation on the state once the events of this effect are durable and
     /// applied, hence never on replay: the only safe place for outward-facing actions such as
     /// replying or telling another actor. On an effect without events it runs right after

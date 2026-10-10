@@ -36,7 +36,8 @@ cargo add tellus
 ## Packages
 
 - [`tellus`](tellus): the actor framework itself. See [its README](tellus/README.md) for highlights,
-  getting started and the core concepts.
+  getting started and the core concepts. Behind the `test-util` feature it provides `TestContext`
+  for unit testing actors without a running actor system.
 - [`tellus-persistence-postgres`](tellus-persistence-postgres): PostgreSQL event and snapshot
   stores for tellus persistence. The contract test suite any store implementation must pass ships
   with `tellus` itself, behind the `persistence-tests` feature, and an in-memory store for tests

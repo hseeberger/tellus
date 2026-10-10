@@ -41,6 +41,7 @@ lint-fix:
 test:
     cargo test -p tellus
     cargo test -p tellus                      --features serde
+    cargo test -p tellus                      --features test-util
     cargo test -p tellus                      --features persistence
     cargo test -p tellus                      --features persistence-in-memory
     cargo test -p tellus                      --features "persistence-tests,persistence-in-memory"
