@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791644549969,
+  "lastUpdate": 1791644551303,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -3301,6 +3301,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 138965,
             "range": "± 4303",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fada3f8a503ccf0486b49e9165ff8d1982694a3a",
+          "message": "Merge pull request #99 from pawurb/hotpath-cloud\n\nci: migrate profiling to hotpath cloud",
+          "timestamp": "2026-10-10T16:59:06+02:00",
+          "tree_id": "c7de65dfa3ef506f0adb63107b1596577e43561e",
+          "url": "https://github.com/hseeberger/tellus/commit/fada3f8a503ccf0486b49e9165ff8d1982694a3a"
+        },
+        "date": 1791644551059,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3149559,
+            "range": "± 140429",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3090514,
+            "range": "± 20060",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1766292,
+            "range": "± 9245",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 214208,
+            "range": "± 5441",
             "unit": "ns/iter"
           }
         ]
