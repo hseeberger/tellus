@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791816645600,
+  "lastUpdate": 1791816646954,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -3517,6 +3517,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 140294,
             "range": "± 5983",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1cfc9e5d3904714cc4b7667ad8f631f459931d47",
+          "message": "Merge pull request #103 from hseeberger/feat/test-context\n\nfeat: add TestContext behind test-util for unit testing actors",
+          "timestamp": "2026-10-12T16:47:14+02:00",
+          "tree_id": "7d0bdb13ad3b51c609a683d75f11e905f8b4b925",
+          "url": "https://github.com/hseeberger/tellus/commit/1cfc9e5d3904714cc4b7667ad8f631f459931d47"
+        },
+        "date": 1791816646752,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2438850,
+            "range": "± 13724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2448028,
+            "range": "± 69404",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1056399,
+            "range": "± 6745",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 146044,
+            "range": "± 1869",
             "unit": "ns/iter"
           }
         ]
