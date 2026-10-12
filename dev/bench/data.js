@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791824953679,
+  "lastUpdate": 1791824956300,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -3733,6 +3733,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 151819,
             "range": "± 2566",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "75be86ade0a786c469a7520ab70738daa75a729e",
+          "message": "Merge pull request #106 from hseeberger/release-plz-2026-10-12T14-48-32Z\n\nchore: release",
+          "timestamp": "2026-10-12T19:05:54+02:00",
+          "tree_id": "0a9d57698312bfa4a661f85dfb135dd82e6eeba4",
+          "url": "https://github.com/hseeberger/tellus/commit/75be86ade0a786c469a7520ab70738daa75a729e"
+        },
+        "date": 1791824955877,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2706360,
+            "range": "± 79294",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2272922,
+            "range": "± 116908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1004630,
+            "range": "± 36058",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 131517,
+            "range": "± 4677",
             "unit": "ns/iter"
           }
         ]
