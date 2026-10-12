@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791652003982,
+  "lastUpdate": 1791816645600,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -1919,6 +1919,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 2990885,
             "range": "± 104831",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1cfc9e5d3904714cc4b7667ad8f631f459931d47",
+          "message": "Merge pull request #103 from hseeberger/feat/test-context\n\nfeat: add TestContext behind test-util for unit testing actors",
+          "timestamp": "2026-10-12T16:47:14+02:00",
+          "tree_id": "7d0bdb13ad3b51c609a683d75f11e905f8b4b925",
+          "url": "https://github.com/hseeberger/tellus/commit/1cfc9e5d3904714cc4b7667ad8f631f459931d47"
+        },
+        "date": 1791816645293,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 10033087,
+            "range": "± 293366",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 10318693,
+            "range": "± 52643",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 537456,
+            "range": "± 6019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 611347,
+            "range": "± 3733",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 4446265,
+            "range": "± 168940",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 2819489,
+            "range": "± 16995",
             "unit": "ns/iter"
           }
         ]
