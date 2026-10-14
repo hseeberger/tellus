@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791824956300,
+  "lastUpdate": 1792005429979,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -2099,6 +2099,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 6512694,
             "range": "± 368270",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bb08edf708fad42f2d674e754131eac1e307798d",
+          "message": "Merge pull request #110 from hseeberger/dependabot/github_actions/dtolnay/rust-toolchain-e2a55d2ffb04f378e9626c28d38b36d230d1e12f\n\nci(deps): bump dtolnay/rust-toolchain from 7e38f4b43b4db5c8dd498af069a4f6196df1d067 to e2a55d2ffb04f378e9626c28d38b36d230d1e12f",
+          "timestamp": "2026-10-14T21:13:48+02:00",
+          "tree_id": "6bc9d01e9f9b1d89aa4c898f10b4ea3525bd26b6",
+          "url": "https://github.com/hseeberger/tellus/commit/bb08edf708fad42f2d674e754131eac1e307798d"
+        },
+        "date": 1792005429377,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 8210656,
+            "range": "± 285600",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 10483906,
+            "range": "± 264368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 591113,
+            "range": "± 27536",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 545226,
+            "range": "± 10024",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 3927290,
+            "range": "± 63162",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 2473152,
+            "range": "± 29723",
             "unit": "ns/iter"
           }
         ]
