@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792006219687,
+  "lastUpdate": 1792006221675,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -3949,6 +3949,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 123531,
             "range": "± 6685",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bbcc71797fd40924b72aff281237502abdf1f4c8",
+          "message": "Merge pull request #109 from hseeberger/dependabot/cargo/cargo-minor-c15a9d44dc\n\nbuild(deps): bump uuid from 1.26.1 to 1.27.0 in the cargo-minor group across 1 directory",
+          "timestamp": "2026-10-14T21:26:39+02:00",
+          "tree_id": "f04e30fb4a7aba7b3495ed786dfb5c9fe9a8a4b8",
+          "url": "https://github.com/hseeberger/tellus/commit/bbcc71797fd40924b72aff281237502abdf1f4c8"
+        },
+        "date": 1792006221073,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2432491,
+            "range": "± 52428",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2447057,
+            "range": "± 33661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1268544,
+            "range": "± 56381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 148072,
+            "range": "± 7140",
             "unit": "ns/iter"
           }
         ]
