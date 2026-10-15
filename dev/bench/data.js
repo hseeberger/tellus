@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792068282983,
+  "lastUpdate": 1792068284950,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -4057,6 +4057,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 148072,
             "range": "± 7140",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "160f493ca931d0d3422eceac533435e911af065c",
+          "message": "Merge pull request #116 from hseeberger/fix/rustsec-rustls\n\nfix(deps): bump rustls to 0.23.46",
+          "timestamp": "2026-10-15T14:41:16+02:00",
+          "tree_id": "cdae37d67396495d271a829fed3dd8375459c953",
+          "url": "https://github.com/hseeberger/tellus/commit/160f493ca931d0d3422eceac533435e911af065c"
+        },
+        "date": 1792068284499,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3114699,
+            "range": "± 20603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3097114,
+            "range": "± 28422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1806925,
+            "range": "± 11260",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 221320,
+            "range": "± 6650",
             "unit": "ns/iter"
           }
         ]
