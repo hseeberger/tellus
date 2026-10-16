@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792170616375,
+  "lastUpdate": 1792170617815,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -4165,6 +4165,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 221320,
             "range": "± 6650",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2218e9ce5a93c76d726c4cd5182282019a6da812",
+          "message": "Merge pull request #117 from hseeberger/chore/agents\n\nchore: use AGENTS.md instead of CLAUDE.md",
+          "timestamp": "2026-10-16T19:06:55+02:00",
+          "tree_id": "bd58a0b8c7c8279b2dc3f7d324c8b251ff0ba20e",
+          "url": "https://github.com/hseeberger/tellus/commit/2218e9ce5a93c76d726c4cd5182282019a6da812"
+        },
+        "date": 1792170617576,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3068104,
+            "range": "± 40079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3060938,
+            "range": "± 190255",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1817592,
+            "range": "± 13205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 222222,
+            "range": "± 9548",
             "unit": "ns/iter"
           }
         ]
