@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792252029864,
+  "lastUpdate": 1792252031686,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -4381,6 +4381,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 178621,
             "range": "± 3385",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "195710f2acbabf6493e757497db2dc926adfd611",
+          "message": "Merge pull request #120 from hseeberger/chore/dev-profile-debug\n\nbuild: shrink dev build output via debug profile settings",
+          "timestamp": "2026-10-17T17:43:49+02:00",
+          "tree_id": "287fd2dcd81c3030276084043f6d2b725ac7ae4b",
+          "url": "https://github.com/hseeberger/tellus/commit/195710f2acbabf6493e757497db2dc926adfd611"
+        },
+        "date": 1792252031258,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3126666,
+            "range": "± 28975",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3092791,
+            "range": "± 16396",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1814454,
+            "range": "± 8573",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 220475,
+            "range": "± 5589",
             "unit": "ns/iter"
           }
         ]
