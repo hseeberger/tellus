@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792264868961,
+  "lastUpdate": 1792264870542,
   "repoUrl": "https://github.com/tellus-rs/tellus",
   "entries": {
     "Core": [
@@ -4597,6 +4597,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 213047,
             "range": "± 4312",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cda2e16ac484e64b0a2437aa333692c29ce7de99",
+          "message": "Merge pull request #127 from tellus-rs/ci/trusted-publishing\n\nci: publish via crates.io trusted publishing, use app client id",
+          "timestamp": "2026-10-17T21:17:50+02:00",
+          "tree_id": "a2d750757f546f9bd71dd683305117df86f9e3c9",
+          "url": "https://github.com/tellus-rs/tellus/commit/cda2e16ac484e64b0a2437aa333692c29ce7de99"
+        },
+        "date": 1792264870169,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2129321,
+            "range": "± 29031",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2148799,
+            "range": "± 48339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1023493,
+            "range": "± 31259",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 128510,
+            "range": "± 1905",
             "unit": "ns/iter"
           }
         ]
