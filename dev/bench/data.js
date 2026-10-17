@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792266805081,
+  "lastUpdate": 1792266807056,
   "repoUrl": "https://github.com/tellus-rs/tellus",
   "entries": {
     "Core": [
@@ -4813,6 +4813,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 144382,
             "range": "± 3266",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e2ce1270bdc528c00f2ed28fb83482df6775b18f",
+          "message": "Merge pull request #124 from tellus-rs/dependabot/github_actions/dtolnay/rust-toolchain-683b588c487a69d01f6c6ddf40f036ff682cc2c8\n\nci(deps): bump dtolnay/rust-toolchain from e2a55d2ffb04f378e9626c28d38b36d230d1e12f to 683b588c487a69d01f6c6ddf40f036ff682cc2c8",
+          "timestamp": "2026-10-17T21:49:53+02:00",
+          "tree_id": "f75801721ce40c89a34e59598ddd7da8ab44cef8",
+          "url": "https://github.com/tellus-rs/tellus/commit/e2ce1270bdc528c00f2ed28fb83482df6775b18f"
+        },
+        "date": 1792266806536,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3104885,
+            "range": "± 12748",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3174550,
+            "range": "± 29457",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1702958,
+            "range": "± 12411",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 216384,
+            "range": "± 5001",
             "unit": "ns/iter"
           }
         ]
