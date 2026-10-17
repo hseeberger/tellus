@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/tellus-rs/tellus/compare/tellus-v0.3.2...tellus-v0.3.3) - 2026-10-17
+
+### Other
+
+- point links and crate homepage to tellus.rs
+
 ## [0.3.2](https://github.com/tellus-rs/tellus/compare/tellus-v0.3.1...tellus-v0.3.2) - 2026-10-17
 
 ### Other
