@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792275103092,
+  "lastUpdate": 1792275105100,
   "repoUrl": "https://github.com/tellus-rs/tellus",
   "entries": {
     "Core": [
@@ -4921,6 +4921,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 216384,
             "range": "± 5001",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ec9697bd21db5b02a27db35bb277dc4587772e3b",
+          "message": "Merge pull request #128 from tellus-rs/docs/tellus-rs-links\n\ndocs: point links and crate homepage to tellus.rs",
+          "timestamp": "2026-10-18T00:08:16+02:00",
+          "tree_id": "a17c13ca7f18a129df3fd03b817587a2dfbed380",
+          "url": "https://github.com/tellus-rs/tellus/commit/ec9697bd21db5b02a27db35bb277dc4587772e3b"
+        },
+        "date": 1792275104515,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 2484905,
+            "range": "± 11437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 2473569,
+            "range": "± 13439",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1267334,
+            "range": "± 3055",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 151938,
+            "range": "± 2307",
             "unit": "ns/iter"
           }
         ]
