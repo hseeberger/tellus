@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792263953750,
+  "lastUpdate": 1792263955714,
   "repoUrl": "https://github.com/tellus-rs/tellus",
   "entries": {
     "Core": [
@@ -4489,6 +4489,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 220475,
             "range": "± 5589",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "358c3fff403d4c4a381f585281ad9a55436cf26e",
+          "message": "Merge pull request #126 from tellus-rs/chore/move-to-tellus-rs\n\nchore: move repo links and code owners to tellus-rs",
+          "timestamp": "2026-10-17T21:02:28+02:00",
+          "tree_id": "1b0039587d76b24bbe3e99f13e2fc5fdb7d1cf67",
+          "url": "https://github.com/tellus-rs/tellus/commit/358c3fff403d4c4a381f585281ad9a55436cf26e"
+        },
+        "date": 1792263955170,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3111127,
+            "range": "± 5667",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3057397,
+            "range": "± 18175",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1691523,
+            "range": "± 8320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 213047,
+            "range": "± 4312",
             "unit": "ns/iter"
           }
         ]
