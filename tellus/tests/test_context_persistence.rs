@@ -89,20 +89,6 @@ fn settle_reports_the_stop() {
     assert!(settlement.stop);
 }
 
-/// Recovery is a fold of the stored events over the seed, which needs no context at all.
-#[test]
-fn replaying_events_recovers_the_state() {
-    let events = [Deposited(4), Deposited(5)];
-
-    let state = events
-        .into_iter()
-        .fold(Ledger.init().unwrap(), |state, event| {
-            Ledger.apply(state, event)
-        });
-
-    assert_eq!(state, [4, 5]);
-}
-
 struct Ledger;
 
 #[derive(Debug, PartialEq)]

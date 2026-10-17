@@ -324,7 +324,8 @@ where
 fn restart_config() -> ActorConfig {
     ActorConfig::default().with_supervision_strategy(SupervisionStrategy::Restart(RestartPolicy {
         max_restarts: NonZeroU32::MIN,
-        backoff: Backoff::new(Duration::ZERO, Duration::ZERO).expect("the bounds are ordered"),
+        backoff: Backoff::new(Duration::from_nanos(1), Duration::from_nanos(1))
+            .expect("the bounds are valid"),
         reset_after: Duration::ZERO,
     }))
 }

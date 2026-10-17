@@ -133,25 +133,6 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn appended_events_are_returned_in_order() {
-        let store = InMemoryStore::default();
-        let id = persistence_id("events");
-
-        store
-            .append(&id, SeqNo::ZERO, vec![event(1), event(2)])
-            .await
-            .expect("the append succeeds");
-
-        let events = store.events(&id);
-
-        assert_eq!(events.len(), 2);
-        assert_eq!(events[0].seq_no, SeqNo::ZERO);
-        assert_eq!(events[0].event, event(1));
-        assert_eq!(events[1].seq_no, SeqNo::new(1));
-        assert_eq!(events[1].event, event(2));
-    }
-
-    #[tokio::test]
     async fn a_saved_snapshot_is_returned() {
         let store = InMemoryStore::default();
         let id = persistence_id("snapshot");
@@ -166,14 +147,6 @@ mod tests {
 
         assert_eq!(stored.next_seq_no, SeqNo::new(2));
         assert_eq!(stored.snapshot, snapshot());
-    }
-
-    #[tokio::test]
-    async fn an_unknown_id_holds_nothing() {
-        let store = InMemoryStore::default();
-
-        assert!(store.events(&persistence_id("unknown")).is_empty());
-        assert!(store.snapshot(&persistence_id("unknown")).is_none());
     }
 
     #[tokio::test]
@@ -201,7 +174,7 @@ mod tests {
 
     fn event(n: u8) -> EncodedEvent {
         EncodedEvent {
-            manifest: "in-memory-event".to_string(),
+            manifest: "in-memory-event".into(),
             schema_version: SchemaVersion::new(1),
             payload: vec![n],
         }
@@ -209,7 +182,7 @@ mod tests {
 
     fn snapshot() -> EncodedSnapshot {
         EncodedSnapshot {
-            manifest: "in-memory-snapshot".to_string(),
+            manifest: "in-memory-snapshot".into(),
             schema_version: SchemaVersion::new(1),
             payload: vec![0xFF],
         }

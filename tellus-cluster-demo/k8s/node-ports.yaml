@@ -1,0 +1,85 @@
+# One service per node, so a named node can be asked what it sees while the cluster is split.
+# This is what the Compose stack's separate `edge` network provides.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tellus-0
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: tellus-0
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30091
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tellus-1
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: tellus-1
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30092
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tellus-2
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: tellus-2
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30093
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tellus-3
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: tellus-3
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30094
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tellus-4
+  labels:
+    app.kubernetes.io/part-of: tellus-cluster-demo
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: tellus-4
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30095

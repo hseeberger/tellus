@@ -1,0 +1,9 @@
+bootstrap:
+  min_peers: 5
+
+endpoint:
+  failure_detector:
+    phi_accrual: {}
+  downing_provider:
+    keep_majority:
+      after: 10s

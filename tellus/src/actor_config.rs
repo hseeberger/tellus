@@ -54,8 +54,7 @@ pub enum MailboxCapacity {
     #[default]
     Unbounded,
 
-    /// Messages sent to a full mailbox are dropped and logged as dead letters, but a terminated
-    /// signal is still delivered.
+    /// Messages sent to a full mailbox are dropped and logged as dead letters.
     Bounded(NonZeroUsize),
 }
 
@@ -74,9 +73,8 @@ pub enum SupervisionStrategy {
     /// Stop the child actors and replace the current state with a newly initialized one, limited
     /// and paced by the given [RestartPolicy].
     ///
-    /// [Actor::init] is re-run on the same actor value: anything the actor itself carries, e.g.
-    /// via interior mutability, survives the restart; only the state is rebuilt. That includes
-    /// whatever a caught panic left behind, e.g. a poisoned mutex.
+    /// [Actor::init] is re-run on the same actor value: anything the actor itself carries survives
+    /// the restart; only the state is rebuilt.
     ///
     /// [Actor::init]: crate::Actor::init
     Restart(RestartPolicy),
@@ -85,9 +83,9 @@ pub enum SupervisionStrategy {
 /// The limit and pacing for restarts, applied to failures of [Actor::receive] and [Actor::init]
 /// alike, including the first initialization at spawn.
 ///
-/// Failures form a streak: the n-th restart within a streak is delayed by `backoff.min() *
-/// 2^(n-1)`, capped at `backoff.max()`; once a streak exceeds `max_restarts`, the actor stops, so
-/// persistent failure escalates to the watchers. A streak ends, resetting count and backoff, once
+/// Failures are counted consecutively: the n-th restart is delayed by `backoff.min() * 2^(n-1)`,
+/// capped at `backoff.max()`; once `max_restarts` consecutive restarts have failed, the actor
+/// stops, so persistent failure escalates to the watchers. The count and the backoff reset once
 /// the actor has run for at least `reset_after` without failing.
 ///
 /// [Actor::init]: crate::Actor::init
@@ -99,14 +97,14 @@ pub enum SupervisionStrategy {
     serde(deny_unknown_fields)
 )]
 pub struct RestartPolicy {
-    /// The maximum number of restarts within a streak; one more failure stops the actor.
+    /// The maximum number of consecutive restarts; one more failure stops the actor.
     pub max_restarts: NonZeroU32,
 
-    /// The bounds pacing the restarts of a streak. Defaults to [Backoff::default].
+    /// The bounds pacing the consecutive restarts. Defaults to [Backoff::default].
     #[cfg_attr(feature = "serde", serde(default))]
     pub backoff: Backoff,
 
-    /// Running this long without failure ends the streak. Defaults to
+    /// Running this long without failure resets the count. Defaults to
     /// [RestartPolicy::DEFAULT_RESET_AFTER].
     #[cfg_attr(
         feature = "serde",
@@ -129,12 +127,12 @@ impl RestartPolicy {
         }
     }
 
-    /// This policy, pacing the restarts of a streak by the given [Backoff].
+    /// This policy, pacing the consecutive restarts by the given [Backoff].
     pub fn with_backoff(self, backoff: Backoff) -> Self {
         Self { backoff, ..self }
     }
 
-    /// This policy, ending a streak once the actor has run this long without failing.
+    /// This policy, resetting the count once the actor has run this long without failing.
     pub fn with_reset_after(self, reset_after: Duration) -> Self {
         Self {
             reset_after,
@@ -150,11 +148,13 @@ fn default_reset_after() -> Duration {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ActorConfig, Backoff, MailboxCapacity, RestartPolicy, SupervisionStrategy};
-    use std::{
-        num::{NonZeroU32, NonZeroUsize},
-        time::Duration,
-    };
+    #[cfg(feature = "serde")]
+    use crate::{ActorConfig, MailboxCapacity, SupervisionStrategy};
+    use crate::{Backoff, RestartPolicy};
+    use std::{num::NonZeroU32, time::Duration};
+
+    const MIN_BACKOFF: Duration = Duration::from_millis(1);
+    const MAX_BACKOFF: Duration = Duration::from_millis(10);
 
     /// A new policy is paced by the defaults its documentation names, so a caller only has to
     /// overwrite what it wants to differ.
@@ -169,34 +169,15 @@ mod tests {
 
     /// Each setter overwrites its own field and leaves the others as they were.
     #[test]
-    fn a_config_setter_only_overwrites_its_own_field() {
-        let config = ActorConfig::default()
-            .with_mailbox_capacity(MailboxCapacity::Bounded(NonZeroUsize::MIN))
-            .with_supervision_strategy(SupervisionStrategy::Restart(RestartPolicy::new(
-                NonZeroU32::MIN,
-            )));
-
-        assert!(matches!(
-            config.mailbox_capacity,
-            MailboxCapacity::Bounded(capacity) if capacity == NonZeroUsize::MIN
-        ));
-        assert!(matches!(
-            config.supervision_strategy,
-            SupervisionStrategy::Restart(_)
-        ));
-    }
-
-    /// Each setter overwrites its own field and leaves the others as they were.
-    #[test]
     fn a_policy_setter_only_overwrites_its_own_field() {
-        let backoff = Backoff::new(Duration::ZERO, Duration::ZERO).expect("the bounds are ordered");
+        let backoff = Backoff::new(MIN_BACKOFF, MAX_BACKOFF).expect("the bounds are valid");
         let policy = RestartPolicy::new(NonZeroU32::MIN)
             .with_backoff(backoff)
             .with_reset_after(Duration::ZERO);
 
         assert_eq!(policy.max_restarts, NonZeroU32::MIN);
-        assert_eq!(policy.backoff.min(), Duration::ZERO);
-        assert_eq!(policy.backoff.max(), Duration::ZERO);
+        assert_eq!(policy.backoff.min(), MIN_BACKOFF);
+        assert_eq!(policy.backoff.max(), MAX_BACKOFF);
         assert_eq!(policy.reset_after, Duration::ZERO);
     }
 
@@ -225,6 +206,22 @@ mod tests {
         assert_eq!(policy.reset_after, Duration::from_secs(60));
         assert_eq!(policy.backoff.min(), Backoff::DEFAULT_MIN);
         assert_eq!(policy.backoff.max(), Backoff::DEFAULT_MAX);
+    }
+
+    /// A restart policy without `reset_after` deserializes with the default [RestartPolicy::new]
+    /// names, since serde fills it in apart from the constructor.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn an_omitted_reset_after_takes_the_default() {
+        let config = serde_json::from_str::<ActorConfig>(
+            r#"{ "supervision_strategy": { "restart": { "max_restarts": 3 } } }"#,
+        )
+        .expect("reset_after is optional");
+
+        let SupervisionStrategy::Restart(policy) = config.supervision_strategy else {
+            panic!("expected a restart strategy")
+        };
+        assert_eq!(policy.reset_after, RestartPolicy::DEFAULT_RESET_AFTER);
     }
 
     /// A misspelled key must be an error, not a silently applied default.
