@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792170617815,
+  "lastUpdate": 1792221727216,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -2339,6 +2339,66 @@ window.BENCHMARK_DATA = {
             "name": "fan_out/workers/16",
             "value": 3546650,
             "range": "± 140770",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fa5ed5606022b2e32e677ed201840298fbc8810",
+          "message": "Merge pull request #118 from hseeberger/chore/drop-homepage\n\nchore: drop redundant homepage from manifests",
+          "timestamp": "2026-10-17T09:18:28+02:00",
+          "tree_id": "956a033568addc822a18a47e1bb5aba0080e3d9e",
+          "url": "https://github.com/hseeberger/tellus/commit/8fa5ed5606022b2e32e677ed201840298fbc8810"
+        },
+        "date": 1792221726527,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "flood/unbounded",
+            "value": 26609705,
+            "range": "± 1540253",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "flood/bounded",
+            "value": 29851631,
+            "range": "± 3627606",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/1",
+            "value": 909139,
+            "range": "± 6506",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "ping_pong/pairs/4",
+            "value": 1084542,
+            "range": "± 14119",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/4",
+            "value": 10278517,
+            "range": "± 299015",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fan_out/workers/16",
+            "value": 9896803,
+            "range": "± 380900",
             "unit": "ns/iter"
           }
         ]
