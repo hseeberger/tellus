@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3](https://github.com/tellus-rs/tellus/compare/tellus-persistence-postgres-v0.2.2...tellus-persistence-postgres-v0.2.3) - 2026-10-17
+
+### Other
+
+- point links and crate homepage to tellus.rs
+
 ## [0.2.2](https://github.com/tellus-rs/tellus/compare/tellus-persistence-postgres-v0.2.1...tellus-persistence-postgres-v0.2.2) - 2026-10-17
 
 ### Other
