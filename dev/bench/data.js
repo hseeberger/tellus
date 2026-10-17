@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792221727216,
+  "lastUpdate": 1792221729621,
   "repoUrl": "https://github.com/hseeberger/tellus",
   "entries": {
     "Core": [
@@ -4273,6 +4273,54 @@ window.BENCHMARK_DATA = {
             "name": "recover/snapshot",
             "value": 222222,
             "range": "± 9548",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@heikoseeberger.de",
+            "name": "Heiko Seeberger",
+            "username": "hseeberger"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fa5ed5606022b2e32e677ed201840298fbc8810",
+          "message": "Merge pull request #118 from hseeberger/chore/drop-homepage\n\nchore: drop redundant homepage from manifests",
+          "timestamp": "2026-10-17T09:18:28+02:00",
+          "tree_id": "956a033568addc822a18a47e1bb5aba0080e3d9e",
+          "url": "https://github.com/hseeberger/tellus/commit/8fa5ed5606022b2e32e677ed201840298fbc8810"
+        },
+        "date": 1792221729195,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "persist/no_snapshots",
+            "value": 3630510,
+            "range": "± 59777",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "persist/snapshots",
+            "value": 3278041,
+            "range": "± 16307",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/replay",
+            "value": 1361973,
+            "range": "± 4532",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "recover/snapshot",
+            "value": 178621,
+            "range": "± 3385",
             "unit": "ns/iter"
           }
         ]
